@@ -75,3 +75,4 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="date-range-picker-content"]:popover-open { animation: none; }
 }
+[data-slot="date-range-picker-preset"]:not(:disabled) { cursor: pointer; }

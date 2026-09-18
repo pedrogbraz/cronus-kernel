@@ -1,25 +1,30 @@
 [data-slot="slider"] {
   position: relative; display: flex; width: 100%; align-items: center;
+  min-height: 1rem;
+  & > input[type="range"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+    height: 100%; margin: 0; z-index: 2;
+  }
 }
-[data-slot="slider"] > span:first-child {
+[data-slot="slider"] > span:first-of-type {
   position: relative; display: block; height: 0.375rem; width: 100%; flex-grow: 1;
   overflow: hidden; border-radius: 9999px; background: var(--cronus-surface-overlay);
 }
-[data-slot="slider"] > span:first-child > span {
+[data-slot="slider"] > span:first-of-type > span {
   position: absolute; display: block; height: 100%; inset-inline-start: 0;
   inset-inline-end: calc(100% - var(--cui-slider-value, 0) * 1%); background: var(--cronus-primary);
 }
-[data-slot="slider"] > span:not(:first-child) {
+[data-slot="slider"] > span:not(:first-of-type) {
   position: absolute; transform: translateX(-50%);
   inset-inline-start: calc(var(--cui-slider-value, 0) * 1% + 0.5rem - var(--cui-slider-value, 0) * 0.01rem);
 }
-[data-slot="slider"][data-start] > span:first-child > span {
+[data-slot="slider"][data-start] > span:first-of-type > span {
   inset-inline-start: calc(var(--cui-slider-start, 0) * 1%);
 }
-[data-slot="slider"][data-start] > span:nth-child(2) {
+[data-slot="slider"][data-start] > span:nth-of-type(2) {
   inset-inline-start: calc(var(--cui-slider-start, 0) * 1% + 0.5rem - var(--cui-slider-start, 0) * 0.01rem);
 }
-[data-slot="slider"] > span:not(:first-child) > span {
+[data-slot="slider"] > span:not(:first-of-type) > span {
   display: block; width: 1rem; height: 1rem; box-sizing: border-box;
   border-radius: 9999px; border: 1px solid var(--cronus-primary);
   background: var(--cronus-surface-base);
@@ -127,7 +132,7 @@
 [data-slot="slider"][data-value="99"] { --cui-slider-value: 99; }
 [data-slot="slider"][data-value="100"] { --cui-slider-value: 100; }
 /* RTL: the thumb sits at inline-start; its -50% centring shift mirrors too. */
-[data-slot="slider"] > span:not(:first-child):dir(rtl) { transform: translateX(50%); }
+[data-slot="slider"] > span:not(:first-of-type):dir(rtl) { transform: translateX(50%); }
 [data-slot="slider"][data-start="0"] { --cui-slider-start: 0; }
 [data-slot="slider"][data-start="1"] { --cui-slider-start: 1; }
 [data-slot="slider"][data-start="2"] { --cui-slider-start: 2; }

@@ -658,9 +658,9 @@ mod tests {
         "edit 0158 kbd 4758795c7e74d97c fe24f7e749b0cc31 - kit-catalog",
         "edit 0159 toggle eeb40eb98caba78f 193e5e7c62302cd5 - kit-catalog",
         "edit 0264 skeleton a3f1f5f9ca9c93a2 d482cce5f3ac16e9 - fluid-width",
-        "edit 0268 slider 954c72ddabb73151 1e6810c23e740a83 - fluid-width+rtl-logical",
-        "edit 0269 slider 887d176a3ed16b9d 4dc9197403523f10 - fluid-width+rtl-logical",
-        "edit 0270 slider 05f68fea52e42da3 4b78b130edc813cf - kit-catalog",
+        "edit 0268 slider 954c72ddabb73151 a6dd0c5903756399 - fluid-width+rtl-logical",
+        "edit 0269 slider 887d176a3ed16b9d 48e8895cfa5d040a - fluid-width+rtl-logical",
+        "edit 0270 slider 05f68fea52e42da3 df35dfdcf1d3c62d - kit-catalog",
         "edit 0372 radio-group 89448c1119e8ba2d d8b3d2f239f00eee - kit-catalog",
         "edit 0373 radio-group d3fa4fd94e07f04e 9328efb1dd5ca626 - kit-catalog",
         "edit 0377 chip e498c5f834ec50f9 520cda3814384f75 - kit-catalog",
@@ -682,7 +682,7 @@ mod tests {
         "edit 0484 rating d515febefbbb4013 571ad69467d87304 - kit-catalog",
         "edit 0488 rating 29a82bbc1e4252f7 ca1bb70e41aa2575 - kit-catalog",
         "edit 0491 rating 57b00a1231c5bc9d f0a6c8d2a700ae89 - kit-catalog",
-        "edit 0492 copy-button de94e28b343662ec da1840f7f8d2d11e - kit-catalog",
+        "edit 0492 copy-button de94e28b343662ec 57c7fc72901247cb - kit-catalog",
         "edit 0499 fab f783e26579c521ec 32fe82cee1347648 - kit-catalog",
         "edit 0500 fab 1e7ecc7e46a33609 f59d002cb3cccf08 - kit-catalog",
         "edit 0501 fab 88a782746cd95ce3 fa7853c9ca1359e2 - kit-catalog",
@@ -697,7 +697,7 @@ mod tests {
         "drop 0532 19d506c62fe39e86 dead-slot combobox-item",
         "drop 0533 e4b51a5bc215dfbe dead-slot combobox-item",
         "edit 0554 input-otp 51e017e6f999d072 132b2c080cc8e205 - rtl-logical",
-        "edit 0556 input-otp a8b7a6b8de41f3c1 299734ae117d05ae - rtl-logical",
+        "edit 0556 input-otp a8b7a6b8de41f3c1 54bc946584a2432c - rtl-logical",
         "edit 0557 input-otp 1844db63f820786e 13f000ca45b25f7c - rtl-logical",
         "edit 0558 input-otp 1f27f44142134629 b7df97b1e2b74928 - rtl-logical",
         "edit 0565 dropdown-menu 9050e12f56dd6bc3 3c6ead831fab27f5 - kit-catalog",
@@ -743,7 +743,7 @@ mod tests {
         "edit 0686 data-table 0101660718339584 5fec1161d3905c4d - rtl-logical",
         "edit 0690 sidebar 513f59157d798b32 858b26b5c35131f6 - rtl-logical",
         "edit 0698 sidebar dd117fea5d3de876 2b7a918a4b7113dd - rtl-logical",
-        "edit 0711 phone-input 2c15a6677afaf871 d3d9be5bc7e3f6b3 - rtl-logical",
+        "edit 0711 phone-input 2c15a6677afaf871 914cf1c7777acaab - rtl-logical",
         "edit 0723 currency-input 7bff3ec4c879d8ba 2859e20157ffb9e0 - rtl-logical",
         "edit 0734 scroll-area 20361d594149c881 2936aee452e7930d - fluid-width",
         "edit 0740 toolbar a3c96d162a2395e4 5da2e8465f3c5900 - kit-catalog",
@@ -1032,6 +1032,7 @@ mod tests {
         ("inline-citation", "inline-citation-card-body", "20rem"), // w-80
         ("context", "context-content", "16rem"),                   // HoverCardContent w-64
         ("open-in-chat", "open-in-content", "240px"),              // w-[240px]
+        ("phone-input", "phone-input-content", "280px"),           // w-[280px]
     ];
 
     fn length_rem(token: &str) -> Option<f64> {

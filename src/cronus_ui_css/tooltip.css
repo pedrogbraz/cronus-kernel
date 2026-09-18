@@ -13,3 +13,7 @@
     top: auto; bottom: calc(anchor(top) + 4px); left: anchor(center); translate: -50% 0; /* physical: centred with translate -50% */
   }
 }
+/* hint/manual popovers stay display:none while closed; they must paint when open. */
+[data-slot="tooltip-content"][popover]:popover-open {
+  display: block;
+}

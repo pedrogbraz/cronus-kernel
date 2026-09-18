@@ -77,3 +77,16 @@
 [data-slot="link-preview"] > [data-slot="tooltip-content"] > [data-error] > svg { width: 1rem; height: 1rem; }
 /* Kit catalog frame clips overflow; let the open card escape (shared rule, kept here). */
 [data-slot="catalog-frame"]:has([data-slot="link-preview"]:is(:hover, :focus-within)) { overflow: visible; z-index: 30; }
+[data-slot="link-preview"] > [data-slot="tooltip-content"]:popover-open {
+  display: block; animation: cronus-pop-in 150ms var(--ease-out-quart) both;
+}
+@supports (top: anchor(bottom)) {
+  [data-slot="link-preview"] > [data-slot="tooltip-content"][popover]:popover-open {
+    inset: auto; top: calc(anchor(bottom) + 4px); inset-inline-start: anchor(center); translate: -50% 0;
+  }
+}
+@supports not (top: anchor(bottom)) {
+  [data-slot="link-preview"] > [data-slot="tooltip-content"][popover]:popover-open {
+    position: fixed; inset: auto; top: 18%; inset-inline-start: 50%; translate: -50% 0;
+  }
+}

@@ -17,3 +17,26 @@
 [data-slot="globe-3d"] > .globe > .rim { border-color: color-mix(in oklab, var(--cronus-info) 60%, transparent); }
 [data-slot="globe-3d"] .m > .d { display: none; }
 [data-slot="globe-3d"] .face > img { width: 0.875rem; height: 0.875rem; margin: -0.4375rem; }
+/* Page runtime overlays a textured sphere (`data-globe-live`); hide the CSS disc. */
+[data-slot="globe-3d"][data-globe-live] :is(.disc, .lat, .m, .rim) { display: none; }
+[data-slot="globe-3d"][data-globe-live] > .globe {
+  inset: 0; width: 100%; height: 100%; max-width: none; aspect-ratio: auto; margin: 0; top: auto; translate: none; pointer-events: none;
+}
+[data-slot="globe-3d"][data-globe-live] .spin { animation: none; position: absolute; inset: 0; transform: none; pointer-events: none; }
+[data-slot="globe-3d"][data-globe-live] :is(.marker, .marker div, .marker span) { position: absolute; inset: auto; transform: none; animation: none; }
+[data-slot="globe-3d"][data-globe-live] .marker {
+  inset-inline-start: var(--pin-x, 50%); top: var(--pin-y, 50%); width: 0; height: 0; pointer-events: none; opacity: var(--pin-o, 1); z-index: 2; transition: opacity 0.15s ease-out;
+}
+[data-slot="globe-3d"][data-globe-live] .marker.back :is(.stem, .tip, .face > img) { opacity: 1; }
+[data-slot="globe-3d"][data-globe-live] .pin { inset: auto; top: 0; inset-inline-start: 0; width: 0; height: 0; }
+[data-slot="globe-3d"][data-globe-live] .pin > .stem {
+  width: 2px; height: var(--pin-len, 0.75rem); margin: 0; inset-inline-start: -1px; top: 0;
+  background: color-mix(in oklab, var(--cronus-fg) 55%, transparent);
+  transform: rotate(var(--pin-rot, 0deg)); transform-origin: 50% 0; animation: none; opacity: 0.6;
+}
+[data-slot="globe-3d"][data-globe-live] .pin > .tip {
+  width: 5px; height: 5px; margin: 0; border-radius: 50%; background: var(--cronus-error);
+  top: var(--pin-len, 0.75rem); inset-inline-start: -2.5px; animation: none; opacity: 1;
+}
+[data-slot="globe-3d"][data-globe-live] .face { animation: none; }
+[data-slot="globe-3d"][data-globe-live] .face > img { animation: none; opacity: 1; pointer-events: auto; }

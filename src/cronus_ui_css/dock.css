@@ -34,6 +34,15 @@
 [data-slot="dock-item"]:hover + [data-slot="dock-item"] { width: 3.68rem; height: 3.68rem; }
 [data-slot="dock-item"]:has(+ [data-slot="dock-item"] + [data-slot="dock-item"]:hover),
 [data-slot="dock-item"]:hover + [data-slot="dock-item"] + [data-slot="dock-item"] { width: 2.97rem; height: 2.97rem; }
+[data-slot="dock"][data-dock-live] [data-slot="dock-item"],
+[data-slot="dock"][data-dock-live] [data-slot="dock-item"]:hover,
+[data-slot="dock"][data-dock-live] [data-slot="dock-item"]:has(+ [data-slot="dock-item"]:hover),
+[data-slot="dock"][data-dock-live] [data-slot="dock-item"]:hover + [data-slot="dock-item"],
+[data-slot="dock"][data-dock-live] [data-slot="dock-item"]:has(+ [data-slot="dock-item"] + [data-slot="dock-item"]:hover),
+[data-slot="dock"][data-dock-live] [data-slot="dock-item"]:hover + [data-slot="dock-item"] + [data-slot="dock-item"] {
+  width: calc(2.75rem * var(--dock-s, 1));
+  height: calc(2.75rem * var(--dock-s, 1));
+}
 @media (prefers-reduced-motion: reduce) {
   [data-slot="dock-item"], [data-slot="dock-item"]:hover,
   [data-slot="dock-item"]:has(+ [data-slot="dock-item"]:hover),

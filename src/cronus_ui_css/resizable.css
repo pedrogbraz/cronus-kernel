@@ -143,3 +143,6 @@
   display: flex; height: 100%; align-items: center; justify-content: center; padding: 1rem;
   font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg-secondary);
 }
+[data-slot="resizable-handle"] { cursor: col-resize; touch-action: none; }
+[data-slot="resizable-handle"][data-resize-dir="vertical"] { cursor: row-resize; }
+[data-slot="resizable-handle"]:focus-visible { background: var(--cronus-ring); outline: none; }

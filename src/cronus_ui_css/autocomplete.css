@@ -36,3 +36,7 @@
 [data-slot="autocomplete-content"] [data-slot="command-item"] > span {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+[data-slot="autocomplete-content"] button[data-slot="command-item"] {
+  width: 100%; box-sizing: border-box; margin: 0; border: 0;
+  background: transparent; font: inherit; text-align: start; cursor: pointer;
+}

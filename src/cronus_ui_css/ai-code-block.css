@@ -13,17 +13,17 @@
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-family: var(--cronus-font-mono); font-size: 0.75rem; line-height: 1rem;
 }
-/* AiCodeBlockCopyButton: Button ghost icon-sm, shrink-0, glyph size-3.5 text-fg-tertiary. */
-[data-slot="ai-code-block-copy-button"] {
+/* Header CopyButton: Button ghost icon-sm, shrink-0, glyph size-3.5 text-fg-tertiary. */
+[data-slot="ai-code-block-header"] > [data-slot="copy-button"] {
   display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center;
   width: 2rem; height: 2rem; margin: 0; padding: 0; box-sizing: border-box;
   border: 0 solid transparent; border-radius: var(--cronus-radius-lg);
   background: transparent; color: var(--cronus-fg-secondary); font-family: inherit; outline: none;
   transition: background 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart);
 }
-[data-slot="ai-code-block-copy-button"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; pointer-events: none; color: var(--cronus-fg-tertiary); }
-[data-slot="ai-code-block-copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
-[data-slot="ai-code-block-copy-button"]:active { transform: scale(0.98); }
+[data-slot="ai-code-block-header"] > [data-slot="copy-button"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; pointer-events: none; color: var(--cronus-fg-tertiary); }
+[data-slot="ai-code-block-header"] > [data-slot="copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }
+[data-slot="ai-code-block-header"] > [data-slot="copy-button"]:active { transform: scale(0.98); }
 [data-slot="ai-code-block-body"] {
   overflow: auto; background: var(--cronus-surface-base);
 }

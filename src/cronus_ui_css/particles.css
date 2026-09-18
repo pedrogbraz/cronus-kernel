@@ -81,3 +81,5 @@
 [data-slot="particles"] .h-2xl { font-size: 1.5rem; line-height: 2rem; }
 [data-slot="particles"] .h-3xl { font-size: 1.875rem; line-height: 2.25rem; }
 [data-slot="particles"] .h-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+/* Page runtime draws the field on a canvas; hide the CSS specks. */
+[data-slot="particles"][data-particles-live] > [aria-hidden] > span { display: none; animation: none; }

@@ -28,3 +28,31 @@
   color: var(--cronus-fg); font-size: 0.875rem; line-height: 1.25rem;
 }
 [data-slot="currency-input-field"]::placeholder { color: var(--cronus-fg-tertiary); }
+[data-slot="currency-input-selector"]:not(:disabled) { cursor: pointer; }
+[data-slot="currency-input-content"]:popover-open {
+  box-sizing: border-box; min-width: 8rem; max-height: 16rem; overflow-y: auto;
+  margin: 0; padding: 0.25rem; z-index: 50;
+  border: 1px solid var(--cronus-border); border-radius: var(--cronus-radius-lg);
+  background: var(--cronus-surface-floating); color: var(--cronus-fg);
+  box-shadow: var(--cronus-shadow-lg, none);
+}
+[data-slot="currency-input-item"] {
+  position: relative; display: flex; align-items: center; gap: 0.375rem;
+  padding-block: 0.375rem; padding-inline: 0.5rem 1.5rem; border-radius: var(--cronus-radius-md);
+  font-size: 0.875rem; line-height: 1.25rem; cursor: pointer; user-select: none;
+}
+[data-slot="currency-input-item"]:hover,
+[data-slot="currency-input-item"]:has(> input:focus-visible) {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="currency-input-item"] > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="currency-input-item"]:has(> input:checked)::after {
+  content: "\2713"; position: absolute; inset-inline-end: 0.5rem;
+}
+[data-slot="currency-input-item"] > span:first-child { font-weight: 500; }
+[data-slot="currency-input-item"] > span:nth-child(2) {
+  font-size: 0.75rem; line-height: 1rem; font-weight: 500; color: var(--cronus-fg-tertiary);
+}

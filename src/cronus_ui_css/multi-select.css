@@ -64,3 +64,11 @@
   color: var(--cronus-primary-foreground);
 }
 [data-slot="multi-select-indicator"] svg { width: 0.75rem; height: 0.75rem; }
+[data-slot="multi-select"] [data-slot="command-item"]:has(> input:checked) [data-slot="multi-select-indicator"] {
+  border-color: var(--cronus-primary); background: var(--cronus-primary);
+  color: var(--cronus-primary-foreground);
+}
+[data-slot="multi-select"] [data-slot="command-item"]:not(:has(> input:checked)) [data-slot="multi-select-indicator"] {
+  border-color: var(--cronus-border); background: var(--cronus-surface-inset);
+  color: transparent;
+}

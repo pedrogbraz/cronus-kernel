@@ -28,3 +28,21 @@
 }
 [data-slot="signature-pad"] [data-slot="button"]:disabled { opacity: 0.5; pointer-events: none; }
 [data-slot="signature-pad"] [data-slot="button"] svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; }
+[data-slot="signature-pad-surface"] { display: block; width: 100%; height: 100%; }
+[data-slot="signature-pad-surface"] polyline {
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+[data-slot="signature-pad"][data-empty="false"] [data-slot="signature-pad-hint"] { opacity: 0; }
+[data-slot="signature-pad"][data-disabled="true"] [data-slot="signature-pad-surface"] { pointer-events: none; }
+[data-slot="signature-pad-undo"], [data-slot="signature-pad-clear"] {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; width: 2rem; padding: 0; border-width: 0;
+  border-radius: var(--cronus-radius-lg); font-size: 0.875rem; line-height: 1.25rem;
+  background: transparent; color: var(--cronus-fg-secondary); cursor: pointer;
+}
+[data-slot="signature-pad-undo"]:disabled, [data-slot="signature-pad-clear"]:disabled {
+  opacity: 0.5; pointer-events: none;
+}
+[data-slot="signature-pad-undo"] svg, [data-slot="signature-pad-clear"] svg {
+  width: 0.875rem; height: 0.875rem; flex-shrink: 0;
+}

@@ -10,15 +10,15 @@
   position: relative;
 }
 /* React draws a canvas burst from the pointer (48 pieces, gravity 0.12 px/frame², ~1s life,
-   oklch(0.75 0.18 hue) with hue = i·29); zero JS fires the same burst from the centre of the
-   wrapper while :active, one piece per span with its own launch vector and hue. */
+   oklch(0.75 0.18 hue) with hue = i·29); origin is `--spark-x/--spark-y` (centre without JS). */
 [data-slot="confetti"] > [aria-hidden] > span {
-  position: absolute; inset-inline-start: 50%; top: 50%;
+  position: absolute; inset-inline-start: var(--spark-x, 50%); top: var(--spark-y, 50%);
   width: var(--cui-s); height: calc(var(--cui-s) * 0.6);
   background: oklch(0.75 0.18 var(--cui-h));
   opacity: 0;
 }
-[data-slot="confetti"]:active > [aria-hidden] > span {
+[data-slot="confetti"]:active > [aria-hidden] > span,
+[data-slot="confetti"][data-sparking] > [aria-hidden] > span {
   animation: cui-confetti 1s linear forwards;
 }
 @keyframes cui-confetti {

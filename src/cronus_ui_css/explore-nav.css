@@ -72,7 +72,7 @@
 [data-slot="explore-nav"] [data-slot="explore-nav-product"] > .viewing { display: none; }
 [data-slot="explore-nav"] .scroller > label:has(> input:checked) > [data-slot="explore-nav-product"] > .viewing { display: block; }
 [data-slot="explore-nav"] .scroller > label:has(> input:checked) > [data-slot="explore-nav-product"] > .badge { display: none; }
-/* Prev / next arrows: JS-only scroll helpers, idle look. */
+/* Prev / next arrows: live.js scrolls the strip via data-explore-nav. */
 [data-slot="explore-nav"] .carousel > button {
   position: absolute; top: 50%; z-index: 10; display: flex; width: 2.5rem; height: 2.5rem; align-items: center; justify-content: center;
   color: var(--cronus-fg); translate: 0 -50%;

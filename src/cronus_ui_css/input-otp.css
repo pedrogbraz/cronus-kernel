@@ -1,9 +1,9 @@
 [data-input-otp-container] {
   position: relative; display: flex; align-items: center; gap: 0.5rem;
-  line-height: 1.5; cursor: text; user-select: none; pointer-events: none;
+  line-height: 1.5; cursor: text; user-select: none; pointer-events: auto;
 }
 [data-input-otp-container] > div:last-child {
-  position: absolute; inset: 0; pointer-events: none;
+  position: absolute; inset: 0; pointer-events: all;
 }
 [data-slot="input-otp"] {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -15,6 +15,18 @@
 }
 [data-slot="input-otp-group"] {
   display: flex; align-items: center;
+  [data-slot="input-otp-separator"] {
+    display: flex; align-items: center; margin-inline: 0.5rem;
+    color: var(--cronus-fg-muted, var(--cronus-fg-tertiary));
+  }
+  [data-slot="input-otp-separator"] > svg {
+    width: 1rem; height: 1rem; flex-shrink: 0;
+  }
+  [data-slot="input-otp-separator"] + [data-slot="input-otp-slot"] {
+    border-inline-start-width: 1px;
+    border-start-start-radius: var(--cronus-radius-lg);
+    border-end-start-radius: var(--cronus-radius-lg);
+  }
 }
 [data-slot="input-otp-slot"] {
   position: relative; display: flex; align-items: center; justify-content: center;
@@ -23,6 +35,24 @@
   border-top-width: 1px; border-inline-end-width: 1px; border-bottom-width: 1px;
   font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);
   font-variant-numeric: tabular-nums;
+  &:has(+ [data-slot="input-otp-separator"]) {
+    border-start-end-radius: var(--cronus-radius-lg);
+    border-end-end-radius: var(--cronus-radius-lg);
+  }
+  &[data-active="true"] {
+    z-index: 1; border-color: var(--cronus-ring, var(--cronus-border));
+    box-shadow: 0 0 0 2px var(--cronus-ring, var(--cronus-fg));
+  }
+  &[data-active="true"]::after {
+    content: ""; position: absolute; top: 50%; inset-inline-start: 50%;
+    height: 1rem; width: 1px; background: var(--cronus-fg);
+    transform: translate(-50%, -50%); pointer-events: none;
+    animation: caret-blink 1.25s ease-out infinite;
+  }
+  &[data-active="true"]:not(:empty)::after { content: none; }
+  @media (prefers-reduced-motion: reduce) {
+    &[data-active="true"]::after { animation: none; }
+  }
 }
 [data-slot="input-otp-slot"]:first-child {
   border-inline-start-width: 1px;

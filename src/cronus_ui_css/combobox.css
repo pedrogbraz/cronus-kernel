@@ -61,3 +61,14 @@
 [data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="10"] > :checked) > span::before { content: attr(data-o10); }
 [data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="11"] > :checked) > span::before { content: attr(data-o11); }
 [data-slot="combobox-trigger"]:has(+ [data-slot="combobox-content"] [data-option="12"] > :checked) > span::before { content: attr(data-o12); }
+/* cmdk search row: pin the input, let command-list scroll the options. */
+[data-slot="combobox-content"]:popover-open:has([data-slot="combobox-input"]) {
+  padding: 0; overflow: hidden; display: flex; flex-direction: column;
+}
+[data-slot="combobox-input"] {
+  display: flex; width: 100%; height: 2.5rem; box-sizing: border-box;
+  border: 0; background: transparent; color: var(--cronus-fg);
+  padding-block: 0.75rem; padding-inline: 0; font-family: inherit; font-size: 0.875rem; line-height: 1.25rem;
+  outline: none;
+}
+[data-slot="combobox-input"]::placeholder { color: var(--cronus-fg-tertiary); }

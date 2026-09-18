@@ -43,3 +43,10 @@
   font-size: 0.75rem; line-height: 1rem; color: var(--cronus-fg-tertiary);
 }
 [data-slot="hover-card-content"] .meta > svg { width: 0.875rem; height: 0.875rem; }
+@supports (top: anchor(bottom)) {
+  [data-slot="hover-card-content"][popover]:popover-open {
+    top: calc(anchor(bottom) + 4px);
+    inset-inline-start: anchor(center);
+    translate: -50% 0;
+  }
+}

@@ -28,6 +28,7 @@
 [data-slot="magnetic"] > .z7:hover ~ [data-slot="magnetic-target"] { transform: translate(0, var(--cui-magnetic-pull, 7px)); }
 [data-slot="magnetic"] > .z8 { inset-block-end: 0; inset-inline-end: 0; width: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }
 [data-slot="magnetic"] > .z8:hover ~ [data-slot="magnetic-target"] { transform: translate(calc(var(--cui-magnetic-pull, 7px) * 0.7071), calc(var(--cui-magnetic-pull, 7px) * 0.7071)); }
+[data-slot="magnetic"][data-magnetic-live] > .z { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   [data-slot="magnetic"] [data-slot="magnetic-target"],
   [data-slot="magnetic"] > .z:hover ~ [data-slot="magnetic-target"] {

@@ -57,3 +57,16 @@
 }
 /* Kit catalog frame clips overflow; let the open card escape (shared rule, kept here). */
 [data-slot="catalog-frame"]:has([data-slot="author-tooltip"]:is(:hover, :focus-within)) { overflow: visible; z-index: 30; }
+[data-slot="author-tooltip"] > [data-slot="tooltip-content"]:popover-open {
+  display: block; animation: cronus-pop-in 150ms var(--ease-out-quart) both;
+}
+@supports (top: anchor(bottom)) {
+  [data-slot="author-tooltip"] > [data-slot="tooltip-content"][popover]:popover-open {
+    inset: auto; bottom: calc(anchor(top) + 4px); inset-inline-start: anchor(center); translate: -50% 0;
+  }
+}
+@supports not (top: anchor(bottom)) {
+  [data-slot="author-tooltip"] > [data-slot="tooltip-content"][popover]:popover-open {
+    position: fixed; inset: auto; top: 18%; inset-inline-start: 50%; translate: -50% 0;
+  }
+}

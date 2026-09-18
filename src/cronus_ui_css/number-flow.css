@@ -22,6 +22,12 @@
 [data-slot="number-flow"] [data-digit="7"] > span { margin-block-start: -8em; }
 [data-slot="number-flow"] [data-digit="8"] > span { margin-block-start: -9em; }
 [data-slot="number-flow"] [data-digit="9"] > span { margin-block-start: -10em; }
+[data-slot="number-flow"] [data-digit] > span {
+  transition: margin-block-start 500ms var(--cronus-spring-soft, var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)));
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="number-flow"] [data-digit] > span { transition: none; }
+}
 /* Docs display sizes (`font-display text-5xl tracking-[-0.03em] text-fg`). */
 [data-slot="number-flow"].t-3xl, [data-slot="number-flow"].t-4xl, [data-slot="number-flow"].t-5xl {
   font-family: var(--cronus-font-display, inherit); color: var(--cronus-fg);

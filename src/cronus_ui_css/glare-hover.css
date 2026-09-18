@@ -8,15 +8,19 @@
   opacity: 0;
   background: linear-gradient(115deg, transparent 32%, color-mix(in oklch, var(--cronus-fg) 18%, transparent) 50%, transparent 68%);
   background-size: 220% 220%;
-  background-position: 50% 50%;
+  background-position: var(--glare-x, 50%) var(--glare-y, 50%);
   transition: opacity 300ms var(--cronus-ease);
 }
-/* React writes the pointer position to custom properties on every frame; zero JS
-   fades the glare in on hover and sweeps it across the diagonal instead. */
+/* Fade-in on hover; sweep is the no-JS fallback. `[data-glare-live]` pins the
+   sheen to `--glare-x/--glare-y` instead. */
 [data-slot="glare-hover"]:hover > [aria-hidden],
 [data-slot="glare-hover"]:focus-within > [aria-hidden] {
   opacity: 1;
   animation: cui-glare-sweep 2.4s ease-in-out infinite alternate;
+}
+[data-slot="glare-hover"][data-glare-live]:hover > [aria-hidden],
+[data-slot="glare-hover"][data-glare-live]:focus-within > [aria-hidden] {
+  animation: none;
 }
 @keyframes cui-glare-sweep {
   from { background-position: 0% 0%; }

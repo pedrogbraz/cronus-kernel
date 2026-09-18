@@ -71,3 +71,14 @@
 [data-slot="video-player"].mw-lg { max-width: 32rem; margin-inline: auto; }
 /* React's controls fade in on hover/focus and stay while paused (idle = paused). */
 [data-slot="video-player-controls"] { transition: opacity 200ms; }
+[data-slot="video-player-overlay-play"]:hover { transform: scale(1.05); }
+[data-slot="video-player-play"]:hover, [data-slot="video-player-rate"]:hover,
+[data-slot="video-player-mute"]:hover, [data-slot="video-player-fullscreen"]:hover {
+  background: var(--cronus-surface-overlay);
+}
+[data-slot="video-player-seek"], [data-slot="video-player-volume"] { cursor: pointer; }
+[data-slot="video-player"][data-playing] [data-slot="video-player-overlay-play"] { display: none; }
+[data-slot="video-player"][data-playing] [data-slot="video-player-controls"] { opacity: 0; pointer-events: none; }
+[data-slot="video-player"][data-playing]:is(:hover, :focus-within) [data-slot="video-player-controls"] {
+  opacity: 1; pointer-events: auto;
+}

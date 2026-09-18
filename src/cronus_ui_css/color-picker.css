@@ -49,3 +49,22 @@
 [data-slot="color-picker-swatch-button"]:has(> input:focus-visible) {
   outline: 2px solid var(--cronus-ring, var(--cronus-primary)); outline-offset: 2px;
 }
+[data-slot="color-picker-area"] {
+  position: relative; height: 9rem; width: 100%; min-width: 14rem; box-sizing: border-box;
+  overflow: hidden; border-radius: var(--cronus-radius-lg); border: 1px solid var(--cronus-border);
+  cursor: crosshair;
+  background: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, var(--cronus-primary));
+}
+[data-slot="color-picker-content"] > div:has(> [data-slot="color-picker-hue"]) {
+  position: relative; height: 1rem; width: 100%; box-sizing: border-box;
+  overflow: hidden; border-radius: 9999px; border: 1px solid var(--cronus-border);
+  background: linear-gradient(to right, oklch(0.7 0.2 0), oklch(0.7 0.2 60), oklch(0.7 0.2 120), oklch(0.7 0.2 180), oklch(0.7 0.2 240), oklch(0.7 0.2 300), oklch(0.7 0.2 360));
+}
+[data-slot="color-picker-sat"],
+[data-slot="color-picker-hue"] {
+  position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0;
+  opacity: 0; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+[data-slot="color-picker-sat"] { cursor: crosshair; }
+[data-slot="color-picker-hue"] { cursor: ew-resize; }

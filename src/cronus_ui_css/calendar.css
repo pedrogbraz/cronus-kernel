@@ -76,3 +76,41 @@
 [data-slot="calendar"] td[aria-selected="true"]:not(.day-range-middle) > button {
   background: var(--cronus-primary); color: var(--cronus-primary-foreground); opacity: 1;
 }
+/* Zero JS: label + hidden radio is the control; React's day button is decorative. */
+[data-slot="calendar"] td > label {
+  position: relative; display: flex; cursor: pointer;
+}
+[data-slot="calendar"] td > label > input {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+[data-slot="calendar"] td > label > button {
+  display: flex; width: 2.25rem; height: 2.25rem; align-items: center; justify-content: center;
+  padding: 0; border: 0; border-radius: var(--cronus-radius-lg);
+  background: transparent; color: var(--cronus-fg-secondary);
+  font: inherit; font-size: 0.875rem; line-height: 1.25rem; font-weight: 400; cursor: pointer;
+  pointer-events: none;
+  transition: background 150ms var(--ease-out-quart), color 150ms var(--ease-out-quart);
+}
+[data-slot="calendar"] td[data-today="true"] > label > button {
+  background: var(--cronus-surface-overlay); color: var(--cronus-fg);
+}
+[data-slot="calendar"] td[data-outside="true"] > label > button { color: var(--cronus-fg-muted); }
+[data-slot="calendar"] td.day-range-middle > label > button {
+  background: transparent; color: var(--cronus-fg); opacity: 1;
+}
+[data-slot="calendar"] td[aria-selected="true"]:not(.day-range-middle) > label > button,
+[data-slot="calendar"] td:has(> label > input:checked):not(.day-range-middle) > label > button {
+  background: var(--cronus-primary); color: var(--cronus-primary-foreground); opacity: 1;
+}
+[data-slot="calendar"] td:has(> label > input:checked) { background: var(--cronus-surface-overlay); }
+[data-slot="calendar"] td[data-outside="true"]:has(> label > input:checked) {
+  background: color-mix(in oklab, var(--cronus-surface-overlay) 50%, transparent);
+}
+[data-slot="calendar"] td:has(> label > input:checked):first-child {
+  border-start-start-radius: var(--cronus-radius-md); border-end-start-radius: var(--cronus-radius-md);
+}
+[data-slot="calendar"] td:has(> label > input:checked):last-child {
+  border-start-end-radius: var(--cronus-radius-md); border-end-end-radius: var(--cronus-radius-md);
+}
+[data-slot="calendar"] nav > button:not(:disabled) { opacity: 1; cursor: pointer; }

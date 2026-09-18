@@ -1,4 +1,4 @@
-/* number-input: native text field; steppers need JS (disabled, idle look). */
+/* number-input: native text field; steppers increment via page runtime. */
 [data-slot="number-input"] {
   display: flex; align-items: center; gap: 0.25rem;
 }

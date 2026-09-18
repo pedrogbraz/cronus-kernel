@@ -461,13 +461,13 @@ new skeleton c6d45b8a1e63be3a -
 new skeleton 0879b8b734d2239d -
 new skeleton 7a2e3fc71c48689e -
 new skeleton 533dca43c678a53b -
-keep 0266 slider 39b7e45ab2583df3 -
-keep 0267 slider 99fe0c524e749fcb -
-edit 0268 slider 954c72ddabb73151 1e6810c23e740a83 - fluid-width+rtl-logical
-edit 0269 slider 887d176a3ed16b9d 4dc9197403523f10 - fluid-width+rtl-logical
-edit 0270 slider 05f68fea52e42da3 4b78b130edc813cf - kit-catalog
-new slider 9a9302cbaa900922 -
-new slider 2b5e3732aceea12b -
+keep 0266 slider d58358df005fe198 -
+keep 0267 slider e5406e6b52906e39 -
+edit 0268 slider 954c72ddabb73151 a6dd0c5903756399 - fluid-width+rtl-logical
+edit 0269 slider 887d176a3ed16b9d 48e8895cfa5d040a - fluid-width+rtl-logical
+edit 0270 slider 05f68fea52e42da3 df35dfdcf1d3c62d - kit-catalog
+new slider 08310a28ea9296a4 -
+new slider e8c7261c29bf5d19 -
 keep 0271 slider 8bd1bb38c9726819 -
 keep 0272 slider 48e974572eeb7235 -
 keep 0273 slider a2ae53af8484ffc9 -
@@ -569,7 +569,7 @@ keep 0368 slider 2092d31952e8983f -
 keep 0369 slider 0f5674478ae10225 -
 keep 0370 slider c7b51c541e4da2eb -
 keep 0371 slider c83a9bfd54640f85 -
-new slider 447636be2259dbe7 -
+new slider 857dd84e6c082221 -
 new slider 07d7a344e40c6321 -
 new slider 64043083f0c0bdb9 -
 new slider 1d7c24a97f4bbb75 -
@@ -984,7 +984,7 @@ new rating d61a3d7d5e19b5a4 -
 new rating 1d73b58a7951c5a2 -
 new rating 5cf7d5b10a63345e -
 new rating bd92e95ee7911201 -
-edit 0492 copy-button de94e28b343662ec da1840f7f8d2d11e - kit-catalog
+edit 0492 copy-button de94e28b343662ec 57c7fc72901247cb - kit-catalog
 keep 0493 copy-button 8f961b816954c248 -
 keep 0494 copy-button 0f33ae44dca2c8f1 -
 new copy-button 326fb07696eca987 -
@@ -1099,6 +1099,9 @@ new combobox 43f27369b294589d -
 new combobox b3de3606dd388bb5 -
 new combobox 304cd08ef7d55729 -
 new combobox 96487a65e4268fb9 -
+new combobox 341027c4ec2776a8 -
+new combobox 43c47a9e21b298f2 -
+new combobox 036ef6efef4522c1 -
 drop 0531 10570e9feebc0200 dead-slot combobox-content
 drop 0532 19d506c62fe39e86 dead-slot combobox-item
 drop 0533 e4b51a5bc215dfbe dead-slot combobox-item
@@ -1131,11 +1134,11 @@ new stepper 48c8702d2988d0cb -
 new stepper 287d8029f1208e8d -
 new stepper 683daccee599e2ab -
 new stepper 90c3d6fcc57bc7a7 -
-keep 0552 input-otp 380b33ba0006b0fe -
-keep 0553 input-otp b2a97077e17764d9 -
+keep 0552 input-otp fe7ab21bc1226165 -
+keep 0553 input-otp 8f09f25bb122bc78 -
 edit 0554 input-otp 51e017e6f999d072 132b2c080cc8e205 - rtl-logical
-keep 0555 input-otp 21ea67047a76cb27 -
-edit 0556 input-otp a8b7a6b8de41f3c1 299734ae117d05ae - rtl-logical
+keep 0555 input-otp 45d2bec5dc1d2cd0 -
+edit 0556 input-otp a8b7a6b8de41f3c1 54bc946584a2432c - rtl-logical
 edit 0557 input-otp 1844db63f820786e 13f000ca45b25f7c - rtl-logical
 edit 0558 input-otp 1f27f44142134629 b7df97b1e2b74928 - rtl-logical
 keep 0559 file-dropzone 4c19d3c2730de79c -
@@ -1144,6 +1147,7 @@ keep 0561 file-dropzone 6f32e9447093e049 -
 keep 0562 file-dropzone 895187a6fa52628c -
 keep 0563 file-dropzone 8eeac318f8d1a126 -
 keep 0564 file-dropzone 1959397e8ee63a1e -
+new file-dropzone b51378e295b93b47 -
 edit 0565 dropdown-menu 9050e12f56dd6bc3 3c6ead831fab27f5 - kit-catalog
 keep 0566 dropdown-menu 15b9b069f8661692 -
 keep 0567 dropdown-menu 2445baab727c9f6c -
@@ -1342,10 +1346,25 @@ new calendar f0cc260fb6c1aca2 -
 keep 0626 calendar a4c72aef419bcac0 -
 edit 0627 calendar 7794c342b05e0a0e 7d4411d697690999 - kit-catalog
 new calendar 8f9ac5331483a82f -
+new calendar 59a4a7bd8d51fa11 -
+new calendar ca6a9290c5336124 -
+new calendar 812d255420be214a -
+new calendar c8029440fc40c066 -
+new calendar 9a29f8a1abf1d27c -
+new calendar f4fa9eb9ca879f5d -
+new calendar be92da21d73dd32b -
+new calendar 5c9836f31daebbe1 -
+new calendar 030f770d4fada29f -
+new calendar e2ff907ed74e53f9 -
+new calendar 2187cfbd5215f425 -
+new calendar 054cde8db67e5129 -
 edit 0628 date-picker 002da4aa4bffb312 4f740ce30e65a2fb - kit-catalog
 edit 0629 date-picker 990f80b18a441863 69a715c081ee7c7b - kit-catalog
 edit 0630 date-picker dd57e9b1ef15bbdd 75d077783157f45f - kit-catalog
 edit 0631 date-picker b810224ed770a4ef b7a063a0b02576dd - kit-catalog
+new date-picker 9fc5458feb6da620 -
+new date-picker 070738ecf9fced7c -
+new date-picker 434b42b15639ee49 -
 drop 0632 0ea42503adb506bf kit-catalog
 drop 0633 27d34edcab5285bb kit-catalog
 drop 0634 fbe2d52037ff2904 kit-catalog
@@ -1358,6 +1377,11 @@ edit 0640 time-picker ff8c8f8a182ae174 6042370dfff39b1e - kit-catalog
 edit 0641 time-picker 18c0e65ce857ff0b 013663be072247da - kit-catalog
 edit 0642 time-picker 1225489dec361e18 f41fb353612cf2af - kit-catalog
 edit 0643 time-picker b70e97d07a1e4981 9114a604bfb4dcbf - kit-catalog
+new time-picker 40e7492a524693b7 -
+new time-picker ad2a1e240ed96b10 -
+new time-picker 8c9f44b258381175 -
+new time-picker 2f627c4333c2edcc -
+new time-picker 387ac6247e0758e6 -
 drop 0644 2ba75c56f09923ea kit-catalog
 edit 0645 date-range-picker a987f6ad2ca2557d b28cde2267e5c08d - kit-catalog
 keep 0646 date-range-picker 91ec866a53cbcf20 -
@@ -1380,6 +1404,7 @@ edit 0660 date-range-picker c8ffa08b4285926f 2444d32d9abab9e6 - kit-catalog
 edit 0661 date-range-picker 3a194cfd35fcb3f0 2e848ece9c9cbae5 - kit-catalog
 edit 0662 date-range-picker 574777212b06d5af d47946f8d928d3d1 - kit-catalog
 new date-range-picker 88d3f0cb166281d5 -
+new date-range-picker fc7e88185d063426 -
 keep 0663 area-chart faeb7192c2403c1f -
 new area-chart 8746a141e5eb2a3c -
 keep 0664 bar-chart 5f39bb5606245aeb -
@@ -1548,13 +1573,13 @@ new navigation-menu c0a4a20045887a30 -
 new navigation-menu b00f2efcbf6928ef -
 new navigation-menu d598a78ce5589d48 -
 new navigation-menu 1709849384052972 -
-keep 0709 phone-input ccd0fa6c10246b83 -
+keep 0709 phone-input 70e374d311cf9f10 -
 keep 0710 phone-input adc189b5b13e4915 -
-edit 0711 phone-input 2c15a6677afaf871 d3d9be5bc7e3f6b3 - rtl-logical
+edit 0711 phone-input 2c15a6677afaf871 914cf1c7777acaab - rtl-logical
 keep 0712 phone-input c0671cc4d19bc29a -
 keep 0713 phone-input f0d97a2e6ec6b899 -
 keep 0714 phone-input 5b2d7f74b9aec370 -
-keep 0715 phone-input 01f4e636599a9f13 -
+keep 0715 phone-input 4b75c80ee306aea9 -
 keep 0716 phone-input 83b11bb4b5331a7b -
 keep 0717 phone-input b156c4e0b2e97c94 -
 keep 0718 phone-input de39bec85bcc312f -
@@ -1568,6 +1593,14 @@ keep 0725 currency-input c65e89e511be9461 -
 keep 0726 currency-input 6d3b39c5b65af995 -
 keep 0727 currency-input bd305a742bfa072f -
 keep 0728 currency-input f5f3ecf5256ff526 -
+new currency-input ebdb455e80b8faed -
+new currency-input f0113ddce3c22866 -
+new currency-input f62aec15c695b750 -
+new currency-input 7a43a371fccd9f9d -
+new currency-input e2f63bbf3f888e2e -
+new currency-input aae365c0e493b5e2 -
+new currency-input ea6c607d568790a2 -
+new currency-input d443cedd1052ee84 -
 keep 0729 color-picker c585867a5716c3fb -
 keep 0730 color-picker 0715e0a03c35fd6a -
 keep 0731 color-picker ec2b3afeae4b75cf -
@@ -1581,6 +1614,11 @@ new color-picker c9c638a5950206d1 -
 new color-picker 9a5202684df4f0c6 -
 new color-picker 8bdfd15adda7c592 -
 new color-picker 21da7156a53e19b6 -
+new color-picker 1cadcb138c845105 -
+new color-picker 9fa0e374f6e87cb6 -
+new color-picker 0d410f1733364fd1 -
+new color-picker 86f200db29b52133 -
+new color-picker 6fe924bdbde72da8 -
 edit 0734 scroll-area 20361d594149c881 2936aee452e7930d - fluid-width
 keep 0735 scroll-area 3ea7f2a66ca45842 -
 keep 0736 scroll-area 2c4dd5520edbce3e -
@@ -1665,6 +1703,7 @@ keep 0768 autocomplete 37f2d4d03626dd1f -
 keep 0769 autocomplete 497481a0285c7a8b -
 keep 0770 autocomplete aa1d2ed3c93e8711 -
 keep 0771 autocomplete e8a37a6fc7ee0c2b -
+new autocomplete 46b5a04b35aaedee -
 keep 0772 multi-select 4367145043d8a50b -
 keep 0773 multi-select b31c48c8a5c544a6 -
 keep 0774 multi-select d03844f5b8558b5a -
@@ -1684,6 +1723,8 @@ keep 0787 multi-select dd7ee094d57290c9 -
 keep 0788 multi-select e62e776d0f24e188 -
 keep 0789 multi-select baea6d0c73ba8010 -
 keep 0790 multi-select f4fe9a5ba137bc4e -
+new multi-select 810a34bbe47c4323 -
+new multi-select ac4fad98f0f7e4d1 -
 keep 0791 credit-card-input 15c93f2a688b6943 -
 keep 0792 credit-card-input 8b8732af923b173d -
 keep 0793 credit-card-input b83fef927cce33a1 -
@@ -1755,6 +1796,7 @@ new dock 61ad822d88fe70c2 -
 new dock 5653eb31cddc410f -
 new dock 5804be02e83f55af -
 new dock c81ac498089c7f91 -
+new dock 9313fc9dbb154368 -
 new dock cbb3d1a4070caf3c -
 edit 0834 workspace-switcher a83e444574b16677 1b5f8ccc1c9cda6a - kit-catalog
 keep 0835 workspace-switcher ecfeab2cdd268490 -
@@ -1870,6 +1912,13 @@ edit 0863 signature-pad 76052660b192ab23 e40c1f98435b6ff2 - rtl-logical
 keep 0864 signature-pad 5258ec6730a39c3a -
 keep 0865 signature-pad f5ac702d7e174f44 -
 keep 0866 signature-pad fdc0c16b4fc7157c -
+new signature-pad 649d88251dfe33c2 -
+new signature-pad 1fc8773a0c0fe2e4 -
+new signature-pad e3606e2da69f19e9 -
+new signature-pad eaf492ec811fe4c7 -
+new signature-pad 40960bd048a32695 -
+new signature-pad 9e2c48fff69e5843 -
+new signature-pad 88da83934d70d23b -
 keep 0867 resizable d52bcb9d753e1695 -
 keep 0868 resizable 5c0290deefc72553 -
 keep 0869 resizable c96c392c823cd22d -
@@ -1990,6 +2039,9 @@ new resizable 9fe6a538f883059a -
 new resizable a62d01b7c8e883f7 -
 new resizable 8d17fdd7fc2eb44c -
 new resizable ca8ac8a0b3e1564b -
+new resizable 2aff54c0071284f8 -
+new resizable 5572d454f6a34645 -
+new resizable edfa379977dd30b3 -
 keep 0873 scheduler a52de04cdb1de0a8 -
 keep 0874 scheduler b209378a60cc7300 -
 keep 0875 scheduler e2785e9294bb1433 -
@@ -2201,6 +2253,11 @@ new comparison-slider d402b2cab6065aac -
 new comparison-slider b94441f2f744873d -
 new comparison-slider 20d06c5b70f96937 -
 new comparison-slider 00fdfd8ebbb9b9b5 -
+new comparison-slider 2504333deb26c9e1 -
+new comparison-slider 70eca5c7a231634c -
+new comparison-slider 90b29b5e702ef342 -
+new comparison-slider c606c870bda8bdaa -
+new comparison-slider da7d8ff9a1a1978d -
 keep 0978 code-tabs 678d9ba4b7892785 -
 edit 0979 code-tabs 6baaa7ae42f4eb81 edb15edd51f5965c - rtl-logical
 keep 0980 code-tabs 6f0145e1b2449e0c -
@@ -2714,6 +2771,7 @@ new particles 1498517533089ff1 -
 new particles 8ad37fe73d1330aa -
 new particles d1460ea9e4a51d43 -
 new particles 34aa523abc89d266 -
+new particles e1b6821174fbfbff -
 keep 1060 sparkles-text 6dc104e26eabe366 -
 edit 1061 sparkles-text ff272b69ed638083 f5087adc57503e8e - kit-catalog
 edit 1062 sparkles-text 6fa54eca8e9bd5d0 e0b9f69f00917bc8 - rtl-logical
@@ -3396,6 +3454,12 @@ new video-player 5a7709bad3e0937f -
 new video-player 23f24c83f84d7520 -
 new video-player b91eab5aae803879 -
 new video-player 83f5bb2effcf55e8 -
+new video-player e5f1646cb16a3652 -
+new video-player 2706ee400ecb4b5d -
+new video-player ec24a60e0b1f3a1b -
+new video-player 8dacef241b395915 -
+new video-player 19d4e9aa9b400d77 -
+new video-player e2256d3cef6921aa -
 edit 1163 text-effect e937a7af95624c60 9e501cead64d2478 - kit-catalog
 keep 1164 text-effect 4d09df91bf457191 -
 edit 1165 text-effect 4ac285b6097b8ff5 479377d3ae09049a - kit-catalog
@@ -4328,7 +4392,7 @@ new image-zoom 485f5c0e49094b91 -
 new image-zoom 178d89bf4a7e5507 -
 new image-zoom d1c7aba244b88418 -
 new image-zoom 7cf54c086e300745 -
-new image-zoom 71c943139aab1006 -
+new image-zoom 2df9efe1bd6efccb -
 new image-zoom e2db13dad754c3a9 -
 new image-zoom f88fc31360c5e27c -
 new image-zoom edf82a67ebc1fbea -
@@ -4428,8 +4492,8 @@ new border-beam 4dd80e091106c99d -
 edit 1315 confetti e2002970e087288c 2178eda0da462f93 - fluid-width
 edit 1316 confetti 499ef308aabca13e dc4a7886543b06dd - kit-catalog
 new confetti a3e14cfd48208013 -
-new confetti d1b25b996ce67290 -
-new confetti b856c2f0f8cf169b -
+new confetti eae03329a0a64d51 -
+new confetti b9745d6b0d60e0d5 -
 new confetti 12c65727bbb2e3bd -
 new confetti 9077015835c510a3 -
 new confetti 4f4f37412fc2489f -
@@ -4637,8 +4701,8 @@ new chart e6b49652e2b0f2e9 -
 edit 1330 click-spark 471c5ba1bb7d58e1 c5d36a49488a2e7c - fluid-width
 keep 1331 click-spark 0ced0d4db6879a39 -
 edit 1332 click-spark e8800fa02e94e0f5 ef21d1a98ae4e510 - kit-catalog
-new click-spark 98e1592eba18dc61 -
-new click-spark 5c56f504caf64eab -
+new click-spark 0b9889fd7212a75a -
+new click-spark 148fac7f60594515 -
 new click-spark e88d1ec0270f4552 -
 new click-spark 2d41ec335ec9554c -
 new click-spark 485d4952ad977e6a -
@@ -4694,8 +4758,9 @@ new click-spark 53860e3816079237 -
 new click-spark 3690162dea067e2c -
 new click-spark 9d259bddef8cb7fd -
 edit 1333 glare-hover f6215effcad9630a 5cfdce37f871dc89 - fluid-width
-keep 1334 glare-hover ec429c0d3cd33316 -
+keep 1334 glare-hover 4e9076b64f0ea0e7 -
 edit 1335 glare-hover 2001ef16e88d6218 92973a5279918d79 - kit-catalog
+new glare-hover 308f6fe7b0ef4f84 -
 new glare-hover 35944471f2f4a877 -
 keep 1336 glare-hover d6a602221eacbbaf -
 keep 1337 glare-hover 463c4c8f28c906d2 -
@@ -4725,6 +4790,7 @@ new magnetic cbdaf508c625e77c -
 new magnetic 18b351857636f405 -
 new magnetic 5cf8a0c1aa0c38a4 -
 new magnetic 9289277bd05b52c3 -
+new magnetic 2c34f9075f68d913 -
 new magnetic 9d4fe1e7af578c90 -
 new magnetic dd6a95c538fea2a0 -
 new magnetic 609be919a4f74752 -
@@ -5281,6 +5347,8 @@ new number-flow 1e22cda6ea1722d0 -
 new number-flow 86a26669f397d5f2 -
 new number-flow 7a5a5380fa7ace7c -
 new number-flow d64750ee7caf402b -
+new number-flow 0637236f35755179 -
+new number-flow eab4ade4d704fb65 -
 new number-flow eff087d170f71801 -
 new number-flow 908d3b1ae2ad5449 -
 new number-flow 5da10781d7e1223c -
@@ -5630,10 +5698,10 @@ new actions d3c8895fb50bdbe5 -
 new ai-code-block 81ff3b0d14afb798 -
 new ai-code-block 8457e95983799300 -
 new ai-code-block 5e7d8ccd19173b1d -
-new ai-code-block 15b1aa4928657309 -
-new ai-code-block 00c74182f28eb41e -
-new ai-code-block 49a3a08ab62f4a9c -
-new ai-code-block 153746e967bc02d3 -
+new ai-code-block 5484ef6a51020b72 -
+new ai-code-block 1f6f047aab072719 -
+new ai-code-block 0900cd4a05d6de7d -
+new ai-code-block 1d31a0fa44249e8c -
 new ai-code-block 89d5faafc4f2fd1b -
 new ai-code-block 3e47ca5a80a9eac5 -
 new ai-code-block 05b504506dec25a3 -
@@ -5812,7 +5880,7 @@ new web-preview c6ce6444f0be8fe6 -
 new web-preview 1f4382f2ded877c3 -
 new web-preview b42199ee12bf159b -
 new web-preview a8dbd9ba4c234531 -
-new web-preview 5e7439ce5d7898b4 -
+new web-preview a41165222891ae5d -
 new web-preview 6d5b8285f260bad3 -
 new web-preview 291516bb59e07571 -
 new web-preview 1eaf5118c6c6b4f6 -
@@ -6333,6 +6401,17 @@ new globe-3d 68bb539626404fca -
 new globe-3d 2c900f67bb954fe9 -
 new globe-3d 4f7763c320952176 -
 new globe-3d 692d1e72f6bbe662 -
+new globe-3d 5c3e68dafe85730e -
+new globe-3d b6408009f4180c30 -
+new globe-3d fa0b37fe91ff43b2 -
+new globe-3d 7389e0ad4625dbb9 -
+new globe-3d 1088119db9b52a87 -
+new globe-3d 9378d0441854e2b8 -
+new globe-3d db3bb9860939d577 -
+new globe-3d e1710b66bb22fa99 -
+new globe-3d 50b88262e5113499 -
+new globe-3d bf7fa69fa882f83d -
+new globe-3d cf0ba506a3765c4c -
 new globe-wireframe 46aa12e73f5cbf45 -
 new globe-wireframe 43a87d3eeeb08d53 -
 new globe-wireframe 864b7a370e343a71 -
@@ -6656,3 +6735,16 @@ new token-swap da8e9f37a28f4de5 -
 new token-swap 7709bf2088a1b68e -
 new token-swap 4444e54cc26169fe -
 new token-swap 821e1f5102ea5a90 -
+new tooltip 116ec896287125f1 -
+new hover-card cb314a0e50222f24 -
+new catalog 9fa3ab2529510333 -
+new catalog d52395fe60fb08ee -
+new author-tooltip 36c53a50b45e4a3c -
+new author-tooltip 2a7928aef5da92aa -
+new author-tooltip 6c5ca958abd8a0ec -
+new component-preview-tooltip 6b2e4cfb4f776fa5 -
+new component-preview-tooltip 0ffefe3d3d0797bd -
+new component-preview-tooltip 9f9165dedde4c82f -
+new link-preview be619ce55d807068 -
+new link-preview 5f0d5850c65f46d8 -
+new link-preview 282be942d269ca48 -

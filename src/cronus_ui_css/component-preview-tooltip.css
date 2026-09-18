@@ -64,3 +64,25 @@
 [data-slot="component-preview-tooltip"] .preview-card > [data-slot="progress"] { margin-top: 0.75rem; }
 /* Kit catalog frame clips overflow; let the open card escape (shared rule, kept here). */
 [data-slot="catalog-frame"]:has([data-slot="component-preview-tooltip"]:is(:hover, :focus-within)) { overflow: visible; z-index: 30; }
+[data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"]:popover-open {
+  display: block; animation: cronus-pop-in 150ms var(--ease-out-quart) both;
+}
+@supports (top: anchor(bottom)) {
+  [data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][popover]:popover-open[data-side="right"] {
+    inset: auto; top: anchor(center); inset-inline-start: calc(anchor(end) + 5px); translate: 0 -50%;
+  }
+  [data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][popover]:popover-open[data-side="left"] {
+    inset: auto; top: anchor(center); inset-inline-end: calc(anchor(start) + 5px); translate: 0 -50%;
+  }
+  [data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][popover]:popover-open[data-side="top"] {
+    inset: auto; bottom: calc(anchor(top) + 5px); inset-inline-start: anchor(center); translate: -50% 0;
+  }
+  [data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][popover]:popover-open[data-side="bottom"] {
+    inset: auto; top: calc(anchor(bottom) + 5px); inset-inline-start: anchor(center); translate: -50% 0;
+  }
+}
+@supports not (top: anchor(bottom)) {
+  [data-slot="component-preview-tooltip"] > [data-slot="tooltip-content"][popover]:popover-open {
+    position: fixed; inset: auto; top: 18%; inset-inline-start: 50%; translate: -50% 0;
+  }
+}

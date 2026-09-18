@@ -21,3 +21,7 @@
   outline: 2px solid var(--cronus-ring, var(--cronus-primary));
   outline-offset: 2px;
 }
+[data-slot="file-dropzone"][data-dragging="true"] {
+  border-color: var(--cronus-primary);
+  background: color-mix(in oklab, var(--cronus-primary) 5%, var(--cronus-surface-inset));
+}

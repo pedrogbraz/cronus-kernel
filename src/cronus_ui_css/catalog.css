@@ -394,3 +394,12 @@
 [data-slot="catalog-card"] {
   content-visibility: auto; contain-intrinsic-size: auto 17rem auto 16rem;
 }
+/* Overflow backup while interestfor hover/focus arms (200ms) before :popover-open. */
+[data-slot="catalog-frame"]:has([interestfor]:hover),
+[data-slot="catalog-frame"]:has(:focus-visible) {
+  overflow: visible; z-index: 30;
+}
+[data-slot="catalog-specimen"]:has([interestfor]:hover),
+[data-slot="catalog-specimen"]:has(:focus-visible) {
+  z-index: 30;
+}

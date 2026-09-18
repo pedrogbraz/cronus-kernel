@@ -34,7 +34,8 @@
 [data-slot="web-preview-url"]::selection { background: var(--cronus-primary); color: var(--cronus-primary-foreground); }
 [data-slot="web-preview-body"] { position: relative; min-height: 0; flex: 1; }
 /* The frame box (React's iframe, size-full; the docs' h-56). */
-[data-slot="web-preview-body"] > div {
+[data-slot="web-preview-body"] > iframe,
+[data-slot="web-preview-iframe"] {
   display: block; width: 100%; height: 14rem; border: 0; background: transparent;
 }
 /* WebPreviewConsole: border-t bg-surface-overlay/50 font-mono text-sm; Collapsible via a hidden checkbox. */

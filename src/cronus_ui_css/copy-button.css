@@ -9,6 +9,7 @@
   background: transparent; color: var(--cronus-fg-secondary);
   transition: background 150ms var(--ease-out-quart), border-color 150ms var(--ease-out-quart),
     box-shadow 150ms var(--ease-out-quart), transform 150ms var(--ease-out-quart), opacity 150ms var(--ease-out-quart);
+  &[data-copied] { color: var(--cronus-success, var(--cronus-fg)); }
 }
 [data-slot="copy-button"]:active { transform: scale(0.98); }
 [data-slot="copy-button"]:hover { background: var(--cronus-surface-overlay); color: var(--cronus-fg); }

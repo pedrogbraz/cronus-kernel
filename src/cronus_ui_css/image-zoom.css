@@ -43,7 +43,7 @@
 .cui-image-zoom > input:focus-visible + [data-slot="image-zoom"] {
   box-shadow: 0 0 0 2px var(--cronus-surface-base), 0 0 0 4px var(--cronus-ring);
 }
-.cui-image-zoom > [data-slot="image-zoom"] [data-slot="image-zoom-content"] { transform-origin: 50% 50%; }
+.cui-image-zoom > [data-slot="image-zoom"] [data-slot="image-zoom-content"] { transform-origin: var(--zoom-ox, 50%) var(--zoom-oy, 50%); }
 .cui-image-zoom:hover > [data-slot="image-zoom"] [data-slot="image-zoom-content"],
 .cui-image-zoom > input:checked + [data-slot="image-zoom"] [data-slot="image-zoom-content"] { transform: scale(2); }
 .cui-image-zoom.z-1:hover > [data-slot="image-zoom"] [data-slot="image-zoom-content"],

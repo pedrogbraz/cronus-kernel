@@ -53,3 +53,6 @@
 @media (prefers-reduced-motion: reduce) {
   [data-slot="date-picker-content"]:popover-open { animation: none; }
 }
+[data-slot="date-picker-content"] [data-slot="calendar"] td > label { cursor: pointer; }
+[data-slot="date-picker-content"] [data-slot="calendar"] td > label > button { cursor: pointer; pointer-events: none; }
+[data-slot="date-picker-content"] [data-slot="calendar"] nav > button:not(:disabled) { cursor: pointer; }

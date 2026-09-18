@@ -11,19 +11,20 @@
   --cui-n: 8;
 }
 /* React mounts sparks at the pointer on pointerdown and animates translate(--dx, --dy)
-   scale(0) over 500ms; zero JS bursts the same rays from the centre while :active. */
+   scale(0) over 500ms; origin is `--spark-x/--spark-y` (centre without JS). */
 [data-slot="click-spark"] > [aria-hidden] > span {
   --cui-k: 0;
   --cui-a: calc(360deg * var(--cui-k) / var(--cui-n));
   --cui-d: calc(18px + mod(var(--cui-k), 3) * 6px);
   --cui-dx: calc(cos(var(--cui-a)) * var(--cui-d));
   --cui-dy: calc(sin(var(--cui-a)) * var(--cui-d));
-  position: absolute; inset-inline-start: 50%; top: 50%;
+  position: absolute; inset-inline-start: var(--spark-x, 50%); top: var(--spark-y, 50%);
   width: 0.25rem; height: 0.25rem; border-radius: 9999px;
   background: var(--cronus-primary);
   opacity: 0;
 }
-[data-slot="click-spark"]:active > [aria-hidden] > span {
+[data-slot="click-spark"]:active > [aria-hidden] > span,
+[data-slot="click-spark"][data-sparking] > [aria-hidden] > span {
   animation: cui-click-spark 500ms cubic-bezier(.22, 1, .36, 1) forwards;
 }
 @keyframes cui-click-spark {
