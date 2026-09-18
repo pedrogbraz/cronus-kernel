@@ -3,8 +3,11 @@
 //! Replaces React with ~2KB of vanilla JS for interactivity.
 //! Forms auto-submit to API, lists auto-fetch, stats auto-count.
 
-/// CRONUS Client Runtime — ~2KB vanilla JS, replaces React
-pub const CRONUS_RUNTIME_JS: &str = r#"
+/// CRONUS Client Runtime — ~2KB vanilla JS, replaces React.
+/// Widget live behavior (countdown tick, OTP slots, number-flow, …) is
+/// concatenated from `cronus_ui_live.js` so family renderers stay zero-JS.
+pub const CRONUS_RUNTIME_JS: &str = concat!(
+    r#"
 (function(){
   // On first load, hoist all <style> from #cronus-main to <head> so SPA swaps don't lose them
   (function(){
@@ -721,7 +724,9 @@ pub const CRONUS_RUNTIME_JS: &str = r#"
   // Expose for re-init after SPA navigation
   window.CRONUS={init:init,reload:cronusLiveReload,navigate:cronusNavigate,transition:cronusTransitionNavigate,prefetch:prefetchUrl,version:'0.6.0'};
 })();
-"#;
+"#,
+    include_str!("cronus_ui_live.js")
+);
 
 /// CRONUS Debug Overlay — activated by Cmd+Shift+D / Ctrl+Shift+D or ?debug=1
 pub const CRONUS_DEBUG_JS: &str = r#"
@@ -975,6 +980,24 @@ mod tests {
         let transition = handler.find("document.startViewTransition").unwrap();
         assert!(guard < update && update < transition);
         assert!(CRONUS_RUNTIME_JS.contains("var cronusPath=location.pathname;"));
+    }
+
+    #[test]
+    fn runtime_includes_cronus_ui_live_binders() {
+        assert!(CRONUS_RUNTIME_JS.contains("window._cronusUiLive"));
+        assert!(CRONUS_RUNTIME_JS.contains("[data-slot=\"countdown\"][data-remain]"));
+        assert!(CRONUS_RUNTIME_JS.contains("data-number-flow-action"));
+        assert!(CRONUS_RUNTIME_JS.contains("[data-input-otp-container]"));
+        assert!(CRONUS_RUNTIME_JS.contains("[data-slot=\"phone-input-content\"]"));
+        assert!(
+            !CRONUS_RUNTIME_JS.contains("_cuiShuffle"),
+            "NumberFlow must only roll on click, never setInterval"
+        );
+        assert!(CRONUS_RUNTIME_JS.contains("function rollDigit("));
+        assert!(CRONUS_RUNTIME_JS.contains("function showHint("));
+        assert!(CRONUS_RUNTIME_JS.contains("function bindGlobe3d("));
+        assert!(CRONUS_RUNTIME_JS.contains("function bindParticles("));
+        assert!(CRONUS_RUNTIME_JS.contains("earth-blue-marble.jpg"));
     }
 
     #[test]
