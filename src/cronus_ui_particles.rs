@@ -4,7 +4,9 @@
 //! `<span>`s (React's spawn grid `(i·97, i·53)`, radius `1 + (i % 3)·0.4`
 //! and velocity `((i % 5) - 2)·0.12 / ((i % 3) - 1)·0.08 px/frame` derived
 //! from `nth-child` in COMPONENT_CHROME, drifting on a 20s alternate loop) +
-//! the relative content `<div>`. Only the root has a `data-slot`.
+//! the relative content `<div>`. The page runtime (`cronus_ui_live.js`)
+//! overlays a canvas on the same field and hides the spans. Only the root
+//! has a `data-slot`.
 //!
 //! `count:` is React's `count` (8–40 specks, default 40; the stylesheet
 //! vectors stop at 40); `card:true` is the docs wrapper (`grid min-h-56
@@ -133,6 +135,9 @@ mod tests {
         }
         assert!(css.contains("prefers-reduced-motion"));
         assert!(css.contains("[data-slot=\"particles\"].card {\n  display: grid; place-items: center; height: auto; min-height: 14rem;"));
+        assert!(
+            css.contains("[data-slot=\"particles\"][data-particles-live] > [aria-hidden] > span")
+        );
         assert!(!css.contains("<canvas"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));

@@ -15,7 +15,9 @@
 //! 0.15 / 2), the red tip (`.tip`, the cone) and the avatar (`.face > img`)
 //! kept facing the camera by undoing the same rotations plus the spin — the
 //! sprite behaviour of React's `<Html sprite>`. Back-side pins fade through
-//! the shared phase-shifted opacity loop. Textures are the one thing missing.
+//! the shared phase-shifted opacity loop. `data-lat` / `data-lng` let the
+//! page runtime (`cronus_ui_live.js`) overlay a textured WebGL sphere and
+//! reproject the same pins; the renderer itself still emits no `<canvas>`.
 //!
 //! Inputs: `item "New York" lat:40.7 lng:-74 -> "https://…avatar.webp"`
 //! markers (item text = label / alt; `src:` config also works),
@@ -41,21 +43,33 @@ pub fn render(comp: &ComponentNode) -> String {
         .iter()
         .filter(|i| i.item_type == "item" && !i.text.is_empty())
         .filter_map(|i| {
-            let lat: f64 = i.config.get("lat")?.trim().parse().ok()?;
-            let lng: f64 = i
+            let lat_s = i.config.get("lat")?.trim();
+            let lng_s = i
                 .config
                 .get("lng")
-                .or_else(|| i.config.get("lon"))?
-                .trim()
-                .parse()
-                .ok()?;
+                .or_else(|| i.config.get("lon"))
+                .map(String::as_str)
+                .unwrap_or("")
+                .trim();
+            if lng_s.is_empty() {
+                return None;
+            }
+            let lat: f64 = lat_s.parse().ok()?;
+            let lng: f64 = lng_s.parse().ok()?;
             let src = i
                 .link
                 .as_deref()
                 .or_else(|| i.config.get("src").map(String::as_str))
                 .or_else(|| i.config.get("image").map(String::as_str))
                 .unwrap_or("");
-            Some(marker(lat, lng, &safe_url(src), &esc(&i.text)))
+            Some(marker_at(
+                lat,
+                lng,
+                lat_s,
+                lng_s,
+                &safe_url(src),
+                &esc(&i.text),
+            ))
         })
         .collect();
     let grid = crate::cronus_ui_globe_wireframe::graticule(false);
@@ -80,22 +94,26 @@ fn signed(n: i32) -> String {
 }
 
 fn marker(lat: f64, lng: f64, src: &str, label: &str) -> String {
-    let lat = lat.round().clamp(-90.0, 90.0) as i32;
-    let lng = ((lng.round() as i32) % 360 + 360) % 360;
-    let (yc, yf) = split(lng);
-    let (zc, zf) = split(-lat);
+    marker_at(lat, lng, &lat.to_string(), &lng.to_string(), src, label)
+}
+
+fn marker_at(lat: f64, lng: f64, lat_s: &str, lng_s: &str, src: &str, label: &str) -> String {
+    let lat_i = lat.round().clamp(-90.0, 90.0) as i32;
+    let lng_i = ((lng.round() as i32) % 360 + 360) % 360;
+    let (yc, yf) = split(lng_i);
+    let (zc, zf) = split(-lat_i);
     // Undo: rotateZ(+lat) then rotateY(360 - lng).
-    let (uzc, uzf) = split(lat);
-    let (uyc, uyf) = split((360 - lng) % 360);
+    let (uzc, uzf) = split(lat_i);
+    let (uyc, uyf) = split((360 - lng_i) % 360);
     let img = if src.is_empty() {
         String::new()
     } else {
         format!("<img src=\"{src}\" alt=\"{label}\">")
     };
     // CSS rotateY sends +x away from the viewer, so 0…180 start on the back.
-    let back = if lng <= 180 { " back" } else { "" };
+    let back = if lng_i <= 180 { " back" } else { "" };
     format!(
-        "<div class=\"marker{back} ry-{yc}\" title=\"{label}\"><div class=\"fy-{yf}\"><div class=\"rz-{}\"><div class=\"fz-{}\"><div class=\"pin\"><i class=\"stem\"></i><i class=\"tip\"></i><span class=\"bb\"><span class=\"rz-{}\"><span class=\"fz-{}\"><span class=\"ry-{uyc}\"><span class=\"fy-{uyf}\"><span class=\"face\">{img}</span></span></span></span></span></span></div></div></div></div></div>",
+        "<div class=\"marker{back} ry-{yc}\" title=\"{label}\" data-lat=\"{lat_s}\" data-lng=\"{lng_s}\"><div class=\"fy-{yf}\"><div class=\"rz-{}\"><div class=\"fz-{}\"><div class=\"pin\"><i class=\"stem\"></i><i class=\"tip\"></i><span class=\"bb\"><span class=\"rz-{}\"><span class=\"fz-{}\"><span class=\"ry-{uyc}\"><span class=\"fy-{uyf}\"><span class=\"face\">{img}</span></span></span></span></span></span></div></div></div></div></div>",
         signed(zc),
         signed(zf),
         signed(uzc),
@@ -149,7 +167,7 @@ mod tests {
         assert_eq!(html.matches("<div class=\"m\">").count(), 18);
         // -74.006° → 286° = ry-280 + fy-6; 40.7° N → rotateZ(-41) = rz-n40 + fz-n1;
         // undone as rz-40 + fz-1 and rotateY(74) = ry-70 + fy-4.
-        assert!(html.contains("<div class=\"marker ry-280\" title=\"New York\"><div class=\"fy-6\"><div class=\"rz-n40\"><div class=\"fz-n1\"><div class=\"pin\"><i class=\"stem\"></i><i class=\"tip\"></i><span class=\"bb\"><span class=\"rz-40\"><span class=\"fz-1\"><span class=\"ry-70\"><span class=\"fy-4\"><span class=\"face\"><img src=\"https://assets.aceternity.com/avatars/1.webp\" alt=\"New York\"></span></span></span></span></span></span></div></div></div></div></div>"));
+        assert!(html.contains("<div class=\"marker ry-280\" title=\"New York\" data-lat=\"40.7128\" data-lng=\"-74.006\"><div class=\"fy-6\"><div class=\"rz-n40\"><div class=\"fz-n1\"><div class=\"pin\"><i class=\"stem\"></i><i class=\"tip\"></i><span class=\"bb\"><span class=\"rz-40\"><span class=\"fz-1\"><span class=\"ry-70\"><span class=\"fy-4\"><span class=\"face\"><img src=\"https://assets.aceternity.com/avatars/1.webp\" alt=\"New York\"></span></span></span></span></span></span></div></div></div></div></div>"));
         assert!(html.ends_with("</div><div class=\"rim\"></div></div></div>"));
         reject_js(&html);
     }
@@ -158,11 +176,11 @@ mod tests {
     fn southern_and_eastern_markers() {
         // Sydney: -33.8688, 151.2093 → ry-150 fy-1, rotateZ(+34) = rz-30 fz-4.
         let html = marker(-33.8688, 151.2093, "/a.webp", "Sydney");
-        assert!(html.starts_with("<div class=\"marker back ry-150\" title=\"Sydney\"><div class=\"fy-1\"><div class=\"rz-30\"><div class=\"fz-4\">"));
+        assert!(html.starts_with("<div class=\"marker back ry-150\" title=\"Sydney\" data-lat=\"-33.8688\" data-lng=\"151.2093\"><div class=\"fy-1\"><div class=\"rz-30\"><div class=\"fz-4\">"));
         assert!(html.contains("<span class=\"rz-n30\"><span class=\"fz-n4\"><span class=\"ry-200\"><span class=\"fy-9\">"));
         // Equator / prime meridian: every class is the zero one.
         let html = marker(0.0, 0.0, "", "Null Island");
-        assert!(html.contains("<div class=\"marker back ry-0\" title=\"Null Island\"><div class=\"fy-0\"><div class=\"rz-0\"><div class=\"fz-0\">"));
+        assert!(html.contains("<div class=\"marker back ry-0\" title=\"Null Island\" data-lat=\"0\" data-lng=\"0\"><div class=\"fy-0\"><div class=\"rz-0\"><div class=\"fz-0\">"));
         assert!(
             html.contains("<span class=\"ry-0\"><span class=\"fy-0\"><span class=\"face\"></span>")
         );
@@ -209,6 +227,7 @@ mod tests {
             "[data-slot=\"globe-3d\"] > .globe { inset: auto; width: auto; height: 69%;"
         ));
         assert!(css.contains("var(--cronus-info)"));
+        assert!(css.contains("[data-slot=\"globe-3d\"][data-globe-live]"));
         assert!(!css.contains("#"));
         let shared = include_str!("cronus_ui_css/globe-wireframe.css");
         assert!(shared.contains(".pin > .stem"));
