@@ -7,7 +7,7 @@
 //! (the emitter writes `label "Count"` then `value:1234`), so it is read there
 //! too; the root is `display: inline` like React's unstyled span.
 
-use crate::cronus_ui_kit::{attr, esc, item};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, item};
 use crate::parser::ComponentNode;
 
 pub fn render(comp: &ComponentNode) -> String {
@@ -15,27 +15,101 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(s @ ("3xl" | "4xl" | "5xl")) => format!(" class=\"t-{s}\""),
         _ => String::new(),
     };
+    let n = numeric_of(comp);
+    let mut data = format!(
+        " data-value=\"{}\"",
+        if n.is_finite() {
+            format!("{n}")
+        } else {
+            "0".into()
+        }
+    );
+    if let Some(c) = attr_nonempty(comp, "currency") {
+        data.push_str(&format!(" data-currency=\"{}\"", esc(c)));
+    }
+    if let Some(l) = attr_nonempty(comp, "locale") {
+        data.push_str(&format!(" data-locale=\"{}\"", esc(l)));
+    }
     let number = format!(
-        "<span data-slot=\"animated-number\"{class}><span>{}</span></span>",
+        "<span data-slot=\"animated-number\"{data}{class}><span>{}</span></span>",
         value_of(comp)
     );
-    // Docs demo: the number over a button that bumps the value — a JS
-    // control, rendered as the same native button `disabled`.
+    // Docs demo: the number over a button; page runtime tweens on
+    // `data-animated-number-action=bump`.
     match comp
         .items
         .iter()
         .find(|i| matches!(i.item_type.as_str(), "action" | "button") && !i.text.is_empty())
     {
         Some(action) => {
-            let mut action = action.clone();
-            action.config.insert("disabled".into(), "true".into());
-            format!(
-                "<div class=\"cui-animated-number-demo\">{number}{}</div>",
-                crate::cronus_ui_glass_card::action_button(&action)
-            )
+            let btn = crate::cronus_ui_glass_card::action_button(action).replacen(
+                "<button ",
+                "<button data-animated-number-action=\"bump\" ",
+                1,
+            );
+            format!("<div class=\"cui-animated-number-demo\">{number}{btn}</div>")
         }
         None => number,
     }
+}
+
+fn parse_finite(raw: &str) -> Option<f64> {
+    raw.trim().parse::<f64>().ok().filter(|n| n.is_finite())
+}
+
+fn numeric_of(comp: &ComponentNode) -> f64 {
+    if attr(comp, "currency").filter(|c| !c.is_empty()).is_some() {
+        if let Some(n) = attr(comp, "value")
+            .or_else(|| item(comp, "value"))
+            .and_then(parse_finite)
+        {
+            return n;
+        }
+    }
+    if let Some(n) = item(comp, "value").and_then(parse_finite) {
+        return n;
+    }
+    if let Some(n) = comp
+        .props
+        .get("value")
+        .map(String::as_str)
+        .and_then(parse_finite)
+    {
+        return n;
+    }
+    for i in &comp.items {
+        if let Some(n) = i
+            .config
+            .get("value")
+            .map(String::as_str)
+            .and_then(parse_finite)
+        {
+            return n;
+        }
+    }
+    let label = item(comp, "label")
+        .or_else(|| item(comp, "title"))
+        .unwrap_or("");
+    for i in &comp.items {
+        if i.text.is_empty() {
+            continue;
+        }
+        if matches!(i.item_type.as_str(), "label" | "title" | "value") {
+            continue;
+        }
+        if i.text == label {
+            continue;
+        }
+        if let Some(n) = parse_finite(&i.text) {
+            return n;
+        }
+    }
+    if let Some(s) = crate::cronus_ui_data::scalar() {
+        if let Some(n) = parse_finite(&s) {
+            return n;
+        }
+    }
+    parse_finite(label).unwrap_or(0.0)
 }
 
 /// `Intl.NumberFormat(locale, { style: "currency", currency })` for the
@@ -211,7 +285,7 @@ mod tests {
         let html = render(&stub("animated-number", "Demo"));
         assert_eq!(
             html,
-            "<span data-slot=\"animated-number\"><span>0</span></span>"
+            "<span data-slot=\"animated-number\" data-value=\"0\"><span>0</span></span>"
         );
         reject_fx(&html);
     }
@@ -225,7 +299,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<span data-slot=\"animated-number\"><span>1,234</span></span>"
+            "<span data-slot=\"animated-number\" data-value=\"1234\"><span>1,234</span></span>"
         );
         reject_fx(&html);
     }
@@ -237,7 +311,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<span data-slot=\"animated-number\"><span>1,234</span></span>"
+            "<span data-slot=\"animated-number\" data-value=\"1234\"><span>1,234</span></span>"
         );
         reject_fx(&html);
     }
@@ -258,7 +332,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<span data-slot=\"animated-number\"><span>1,200</span></span>"
+            "<span data-slot=\"animated-number\" data-value=\"1200\"><span>1,200</span></span>"
         );
         reject_fx(&html);
     }
@@ -270,7 +344,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<span data-slot=\"animated-number\"><span>$12.4k</span></span>"
+            "<span data-slot=\"animated-number\" data-value=\"0\"><span>$12.4k</span></span>"
         );
         reject_fx(&html);
     }
@@ -282,7 +356,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<span data-slot=\"animated-number\"><span>1 &lt; 2 &amp; &quot;3&quot;</span></span>"
+            "<span data-slot=\"animated-number\" data-value=\"0\"><span>1 &lt; 2 &amp; &quot;3&quot;</span></span>"
         );
         reject_fx(&html);
     }
@@ -294,7 +368,7 @@ mod tests {
             let html = render(&stub("animated-number", "Leads"));
             assert_eq!(
                 html,
-                "<span data-slot=\"animated-number\"><span>12</span></span>"
+                "<span data-slot=\"animated-number\" data-value=\"12\"><span>12</span></span>"
             );
             reject_fx(&html);
         });
@@ -331,8 +405,8 @@ mod tests {
         assert!(!css.contains(FX_BOX));
     }
 
-    /// Docs "Count up": `pt-BR` BRL currency at the 4xl display size over a
-    /// disabled outline "Nova venda" button (the bump needs JS).
+    /// Docs "Count up": `pt-BR` BRL currency at the 4xl display size over an
+    /// outline "Nova venda" button (`data-animated-number-action=bump`).
     #[test]
     fn docs_currency_demo_with_disabled_button() {
         let mut c = stub("animated-number", "Revenue");
@@ -347,7 +421,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div class=\"cui-animated-number-demo\"><span data-slot=\"animated-number\" class=\"t-4xl\"><span>R$\u{a0}12.480,00</span></span><button type=\"button\" disabled data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\">Nova venda</button></div>"
+            "<div class=\"cui-animated-number-demo\"><span data-slot=\"animated-number\" data-value=\"12480\" data-currency=\"BRL\" data-locale=\"pt-BR\" class=\"t-4xl\"><span>R$\u{a0}12.480,00</span></span><button data-animated-number-action=\"bump\" type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\">Nova venda</button></div>"
         );
         assert_eq!(currency(1234.5, "en-US", "USD"), "$1,234.50");
         assert_eq!(currency(1234.5, "de-DE", "EUR"), "1.234,50\u{a0}€");

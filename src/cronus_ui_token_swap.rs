@@ -6,18 +6,21 @@
 //! *to* card (asset mark + name + `Receive AAVE`, the rolling amount) and
 //! the `Clear` button.
 //!
-//! Zero JS: typing, Max and Clear are React state, so the amount `<input>`
-//! and both buttons render `disabled` with React's idle look; the numbers
-//! come from the `.cronus` and are formatted like `Intl.NumberFormat`
-//! (`en-US`, USD with two decimals, receive with two to three). The ETH and
-//! AAVE marks are the inline SVGs React ships. The `Use → Using` morph and
-//! the digit fade are state changes and do not animate here.
+//! Zero JS in the renderer: the amount field is a real `input` (text +
+//! `inputmode="decimal"`), Max is `data-slot="token-swap-max"` and Clear is
+//! `data-slot="token-swap-clear"`. Page runtime fills max from `data-balance`
+//! and clears the field. Author `disabled:` keeps the input and both buttons
+//! inert (`disabled` + `data-disabled` on the root). The numbers come from
+//! the `.cronus` and are formatted like `Intl.NumberFormat` (`en-US`, USD
+//! with two decimals, receive with two to three). The ETH and AAVE marks are
+//! the inline SVGs React ships. The `Use → Using` morph and the digit fade
+//! are state changes and do not animate here.
 //!
 //! Inputs: `value:"1.5"` (amount, default empty → `0`), `balance:111.82`,
 //! `usd-per-from:3445.86`, `to-per-from:10.87`, `from:"Ethereum"`
 //! `from-symbol:ETH`, `to:"Aave"` `to-symbol:AAVE`.
 
-use crate::cronus_ui_kit::{attr_nonempty, esc};
+use crate::cronus_ui_kit::{attr_nonempty, esc, flag};
 use crate::parser::ComponentNode;
 
 const DEFAULT_USD_PER_FROM: f64 = 3445.86;
@@ -133,6 +136,10 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         ""
     };
+    let disabled = flag(comp, "disabled");
+    let dis = if disabled { " disabled" } else { "" };
+    let root_disabled = if disabled { " data-disabled" } else { "" };
+    let balance_attr = format_fixed(balance, 0, 2).replace(',', "");
     let readout = if insufficient {
         format!("<p class=\"error\">Not Enough {from_symbol}</p>")
     } else {
@@ -141,7 +148,7 @@ pub fn render(comp: &ComponentNode) -> String {
         )
     };
     format!(
-        "<div data-slot=\"token-swap\"><div class=\"card from\"><div class=\"head\"><div class=\"asset\">{ETH_MARK}<div><h2>{from_name}</h2><p> {} {from_symbol}</p></div></div><button type=\"button\" aria-label=\"{prefix} Max\" disabled><span class=\"morph\"><span>{prefix} </span></span>Max</button></div><div class=\"rule\"></div><div class=\"amount\"><div class=\"field\"><input type=\"text\" inputmode=\"decimal\" placeholder=\"0\" value=\"{}\" aria-label=\"Amount\"{invalid} disabled><div aria-hidden=\"true\">{glyphs}</div></div><div class=\"readout\" aria-live=\"polite\">{readout}</div></div><div class=\"chev\">{}</div></div><div class=\"card to\"><div class=\"head\"><div class=\"asset\">{}<div><h2>{to_name}</h2><p> Receive {to_symbol}</p></div></div><p class=\"receive\">{receive}</p></div></div><button type=\"button\" class=\"clear\" disabled>Clear</button></div>",
+        "<div data-slot=\"token-swap\" data-balance=\"{balance_attr}\"{root_disabled}><div class=\"card from\"><div class=\"head\"><div class=\"asset\">{ETH_MARK}<div><h2>{from_name}</h2><p> {} {from_symbol}</p></div></div><button type=\"button\" data-slot=\"token-swap-max\" aria-label=\"{prefix} Max\"{dis}><span class=\"morph\"><span>{prefix} </span></span>Max</button></div><div class=\"rule\"></div><div class=\"amount\"><div class=\"field\"><input type=\"text\" inputmode=\"decimal\" placeholder=\"0\" value=\"{}\" aria-label=\"Amount\"{invalid}{dis}><div aria-hidden=\"true\">{glyphs}</div></div><div class=\"readout\" aria-live=\"polite\">{readout}</div></div><div class=\"chev\">{}</div></div><div class=\"card to\"><div class=\"head\"><div class=\"asset\">{}<div><h2>{to_name}</h2><p> Receive {to_symbol}</p></div></div><p class=\"receive\">{receive}</p></div></div><button type=\"button\" class=\"clear\" data-slot=\"token-swap-clear\"{dis}>Clear</button></div>",
         format_fixed(balance, 0, 2),
         esc(&amount),
         crate::cronus_ui_icons::svg_or_empty("chevron-down"),
@@ -171,14 +178,15 @@ mod tests {
     #[test]
     fn docs_aave_swap_idle_dom() {
         let html = render(&swap());
-        assert!(html.starts_with("<div data-slot=\"token-swap\"><div class=\"card from\"><div class=\"head\"><div class=\"asset\"><svg viewBox=\"0 0 41 41\" aria-hidden=\"true\" data-icon=\"eth\">"));
-        assert!(html.contains("<div><h2>Ethereum</h2><p> 111.82 ETH</p></div></div><button type=\"button\" aria-label=\"Use Max\" disabled><span class=\"morph\"><span>Use </span></span>Max</button></div><div class=\"rule\"></div><div class=\"amount\"><div class=\"field\"><input type=\"text\" inputmode=\"decimal\" placeholder=\"0\" value=\"\" aria-label=\"Amount\" disabled><div aria-hidden=\"true\"><span>0</span></div></div><div class=\"readout\" aria-live=\"polite\"><div class=\"usd\"><span class=\"sr-only\">$0.00</span><div class=\"eq\"><svg"));
+        assert!(html.starts_with("<div data-slot=\"token-swap\" data-balance=\"111.82\"><div class=\"card from\"><div class=\"head\"><div class=\"asset\"><svg viewBox=\"0 0 41 41\" aria-hidden=\"true\" data-icon=\"eth\">"));
+        assert!(html.contains("<div><h2>Ethereum</h2><p> 111.82 ETH</p></div></div><button type=\"button\" data-slot=\"token-swap-max\" aria-label=\"Use Max\"><span class=\"morph\"><span>Use </span></span>Max</button></div><div class=\"rule\"></div><div class=\"amount\"><div class=\"field\"><input type=\"text\" inputmode=\"decimal\" placeholder=\"0\" value=\"\" aria-label=\"Amount\"><div aria-hidden=\"true\"><span>0</span></div></div><div class=\"readout\" aria-live=\"polite\"><div class=\"usd\"><span class=\"sr-only\">$0.00</span><div class=\"eq\"><svg"));
         assert!(html.contains("data-icon=\"equal\""));
         assert!(html.contains("<span class=\"morph\"><span aria-hidden=\"true\"><span>$</span><span>0</span><span>.</span><span>0</span><span>0</span></span></span><svg"));
         assert!(html.contains("data-icon=\"arrow-down-up\""));
         assert!(html.contains("<div class=\"chev\"><svg"));
         assert!(html.contains("<div class=\"card to\"><div class=\"head\"><div class=\"asset\"><svg viewBox=\"0 0 45 45\" aria-hidden=\"true\" data-icon=\"aave\"><mask id=\"cui-token-swap-token-swap-aave\""));
-        assert!(html.contains("<div><h2>Aave</h2><p> Receive AAVE</p></div></div><p class=\"receive\">0.00</p></div></div><button type=\"button\" class=\"clear\" disabled>Clear</button></div>"));
+        assert!(html.contains("<div><h2>Aave</h2><p> Receive AAVE</p></div></div><p class=\"receive\">0.00</p></div></div><button type=\"button\" class=\"clear\" data-slot=\"token-swap-clear\">Clear</button></div>"));
+        assert!(!html.contains(" disabled"));
         reject_js(&html);
     }
 
@@ -187,7 +195,7 @@ mod tests {
         let mut c = swap();
         c.props.insert("value".into(), "1.5".into());
         let html = render(&c);
-        assert!(html.contains("value=\"1.5\" aria-label=\"Amount\" disabled><div aria-hidden=\"true\"><span>1</span><span>.</span><span>5</span></div>"));
+        assert!(html.contains("value=\"1.5\" aria-label=\"Amount\"><div aria-hidden=\"true\"><span>1</span><span>.</span><span>5</span></div>"));
         assert!(html.contains("<span class=\"sr-only\">$5,168.79</span>"));
         assert!(html.contains("<p class=\"receive\">16.305</p>"));
         assert!(html.contains("aria-label=\"Use Max\""));
@@ -199,13 +207,13 @@ mod tests {
         c.props.insert("value".into(), "111.82".into());
         let html = render(&c);
         assert!(html.contains(
-            "aria-label=\"Using Max\" disabled><span class=\"morph\"><span>Using </span></span>Max"
+            "aria-label=\"Using Max\"><span class=\"morph\"><span>Using </span></span>Max"
         ));
         assert!(html.contains("<span class=\"sr-only\">$385,316.07</span>"));
         assert!(!html.contains("aria-invalid"));
         c.props.insert("value".into(), "200".into());
         let html = render(&c);
-        assert!(html.contains("aria-invalid=\"true\" disabled>"));
+        assert!(html.contains("aria-invalid=\"true\">"));
         assert!(html.contains("<div class=\"readout\" aria-live=\"polite\"><p class=\"error\">Not Enough ETH</p></div>"));
         assert!(!html.contains("class=\"usd\""));
         assert!(html.contains("<p class=\"receive\">2,174.00</p>"));
@@ -234,6 +242,17 @@ mod tests {
         assert_eq!(format_fixed(111.82, 0, 2), "111.82");
         assert_eq!(format_fixed(100.0, 0, 2), "100");
         assert_eq!(sanitize(".5"), "0.5");
+    }
+
+    #[test]
+    fn author_disabled_keeps_amount_max_and_clear_inert() {
+        let mut c = swap();
+        c.props.insert("disabled".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("data-slot=\"token-swap\" data-balance=\"111.82\" data-disabled>"));
+        assert!(html.contains("data-slot=\"token-swap-max\" aria-label=\"Use Max\" disabled>"));
+        assert!(html.contains("aria-label=\"Amount\" disabled>"));
+        assert!(html.contains("data-slot=\"token-swap-clear\" disabled>Clear</button>"));
     }
 
     #[test]

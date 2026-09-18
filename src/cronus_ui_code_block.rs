@@ -225,14 +225,15 @@ mod tests {
     }
 
     /// React's code-block header renders CopyButton; the geometry spec compares
-    /// every React slot, so the kernel emits it — disabled, since copying needs JS.
+    /// every React slot, so the kernel emits it. Page runtime copies via data-copy.
     #[test]
     fn header_copy_button_is_disabled_native_button() {
         let mut c = snippet(&["const n = 1;"]);
         c.props.insert("filename".into(), "index.ts".into());
         let html = render(&c);
         assert_eq!(html.matches("data-slot=\"copy-button\"").count(), 1);
-        assert!(html.contains("aria-label=\"Copy\" disabled>"));
+        assert!(html.contains("aria-label=\"Copy\" data-copy=\"Copy\">"));
+        assert!(!html.contains(" disabled>"));
         let css = include_str!("cronus_ui_css/code-block.css");
         assert!(css.contains("[data-slot=\"code-block-header\"] > [data-slot=\"copy-button\"] { width: 2rem; height: 2rem; }"));
         assert!(css.contains("[data-slot=\"code-block\"] > div > [data-slot=\"copy-button\"] {\n  position: absolute; inset-inline-end: 0.5rem; top: 0.5rem; z-index: 10;"));

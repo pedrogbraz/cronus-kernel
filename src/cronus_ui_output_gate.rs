@@ -347,8 +347,17 @@ fn offenses(html: &str) -> Vec<String> {
         }
     }
     for tag in tags(html) {
-        if matches!(tag.name.as_str(), "script" | "style" | "canvas" | "iframe") {
+        if matches!(tag.name.as_str(), "script" | "style" | "canvas") {
             out.push(format!("<{}> element", tag.name));
+        }
+        if tag.name == "iframe" {
+            let sandboxed = tag
+                .attrs
+                .iter()
+                .any(|(n, v)| n == "sandbox" && !v.trim().is_empty());
+            if !sandboxed {
+                out.push("<iframe> element".into());
+            }
         }
         for (name, value) in &tag.attrs {
             let handler = name.len() > 2
@@ -420,6 +429,7 @@ fn gate_detects_each_offense_kind() {
         "<a href=\"java&#9;script:alert(1)\">x</a>",
         "<a href=' javascript:alert(1)'>x</a>",
         "<img data-slot=\"a\" src=\"javascript:alert(1)\">",
+        "<iframe src=\"https://example.com\"></iframe>",
     ];
     for html in bad {
         assert!(!offenses(html).is_empty(), "gate missed: {html}");
@@ -431,6 +441,7 @@ fn gate_detects_each_offense_kind() {
         "<a href=\"#\" aria-label=\"javascript:alert(1)\">x</a>",
         "<a href=\"https://example.com/?a=1&amp;b=2\">x</a>",
         "<svg viewBox=\"0 0 1 1\"><polyline points=\"0,0\"></polyline></svg>",
+        "<iframe data-slot=\"web-preview-iframe\" sandbox=\"allow-scripts allow-same-origin\" src=\"about:blank\"></iframe>",
     ];
     for html in good {
         assert!(

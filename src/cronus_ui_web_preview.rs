@@ -5,19 +5,20 @@
 //! item with its hint popover, then the `<input data-slot="web-preview-url"
 //! type="url">` showing `url:"…"`, placeholder "Enter URL...") >
 //! `<div data-slot="web-preview-body">` > the frame box (`title:"…"`,
-//! "Preview" by default). React's body is a sandboxed `<iframe>`; the kernel
-//! never emits a browsing context (the output gate rejects `<iframe>`), so the
-//! frame is an empty inert `<div title>` of the same size and the URL bar
-//! carries `url:"…"` (dropped when [`safe_url`] rejects it). `console:true`
-//! adds `<div data-slot="web-preview-console">` — React's Collapsible with a
-//! ghost `<button data-slot="button">` trigger (label, count `badge`, chevron)
-//! and a `collapsible-content` of `item "message" level:log|warn|error
-//! time:"…"` rows (level `badge`, time, text) or "No console output".
+//! "Preview" by default). The body is a sandboxed `<iframe
+//! data-slot="web-preview-iframe">` whose `src` is [`safe_url`] of `url:` /
+//! `href:` (or `about:blank`). Rejected schemes (`javascript:`) never land
+//! in `src`. The URL bar shows the same address (dropped when [`safe_url`]
+//! rejects it). `console:true` adds `<div data-slot="web-preview-console">`
+//! — React's Collapsible with a ghost `<button data-slot="button">` trigger
+//! (label, count `badge`, chevron) and a `collapsible-content` of
+//! `item "message" level:log|warn|error time:"…"` rows (level `badge`, time,
+//! text) or "No console output".
 //!
-//! Zero JS: the URL box is a real input (Enter cannot navigate the frame);
-//! navigation buttons need JS and stay `disabled` at React's idle look; the
-//! console opens through a visually hidden checkbox in a `<label>` around the
-//! decorative trigger (closed by default, like React's `consoleOpen`).
+//! Zero JS in the renderer: the URL box is a real input; Back / Forward
+//! carry `data-web-preview-nav` so page runtime can walk history. The
+//! console opens through a visually hidden checkbox in a `<label>` around
+//! the decorative trigger (closed by default, like React's `consoleOpen`).
 
 use crate::cronus_ui_kit::{attr_nonempty, esc, flag, instance_id, safe_url};
 use crate::parser::{ComponentItemNode, ComponentNode};
@@ -34,12 +35,14 @@ pub fn render(comp: &ComponentNode) -> String {
         .unwrap_or_else(|| PLACEHOLDER.into());
     // A rejected URL (`#`) is not an address to show: drop it.
     let url = attr_nonempty(comp, "url")
+        .or_else(|| attr_nonempty(comp, "href"))
         .map(safe_url)
         .filter(|u| u != "#");
     let value = url
         .as_ref()
         .map(|u| format!(" value=\"{u}\""))
         .unwrap_or_default();
+    let frame_src = url.as_deref().unwrap_or("about:blank");
     let title = attr_nonempty(comp, "title")
         .map(esc)
         .unwrap_or_else(|| PREVIEW.into());
@@ -55,8 +58,24 @@ pub fn render(comp: &ComponentNode) -> String {
         String::new()
     };
     format!(
-        "<div data-slot=\"web-preview\"><div data-slot=\"web-preview-navigation\">{buttons}<input data-slot=\"web-preview-url\" type=\"url\" placeholder=\"{placeholder}\" aria-label=\"{placeholder}\"{value}></div><div data-slot=\"web-preview-body\"><div title=\"{title}\"></div></div>{console}</div>"
+        "<div data-slot=\"web-preview\"><div data-slot=\"web-preview-navigation\">{buttons}<input data-slot=\"web-preview-url\" type=\"url\" placeholder=\"{placeholder}\" aria-label=\"{placeholder}\"{value}></div><div data-slot=\"web-preview-body\"><iframe data-slot=\"web-preview-iframe\" title=\"{title}\" sandbox=\"allow-scripts allow-same-origin\" src=\"{frame_src}\"></iframe></div>{console}</div>"
     )
+}
+
+fn nav_kind(item: &ComponentItemNode) -> Option<&'static str> {
+    let text = item.text.to_ascii_lowercase();
+    let icon = item
+        .config
+        .get("icon")
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_default();
+    if text.contains("back") || icon == "arrow-left" {
+        Some("back")
+    } else if text.contains("forward") || icon == "arrow-right" {
+        Some("forward")
+    } else {
+        None
+    }
 }
 
 fn nav_button(comp: &ComponentNode, item: &ComponentItemNode) -> String {
@@ -67,8 +86,11 @@ fn nav_button(comp: &ComponentNode, item: &ComponentItemNode) -> String {
         .and_then(|i| crate::cronus_ui_icons::svg(i))
         .unwrap_or_else(|| label.clone());
     let id = instance_id(comp, "web-preview-tip");
+    let nav = nav_kind(item)
+        .map(|k| format!(" data-web-preview-nav=\"{k}\""))
+        .unwrap_or_default();
     format!(
-        "<button type=\"button\" data-slot=\"web-preview-navigation-button\" data-variant=\"ghost\" aria-label=\"{label}\" interestfor=\"{id}\" aria-describedby=\"{id}\" disabled>{glyph}</button><div id=\"{id}\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">{label}</div>"
+        "<button type=\"button\" data-slot=\"web-preview-navigation-button\" data-variant=\"ghost\" aria-label=\"{label}\" interestfor=\"{id}\" aria-describedby=\"{id}\"{nav}>{glyph}</button><div id=\"{id}\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">{label}</div>"
     )
 }
 
@@ -139,12 +161,12 @@ mod tests {
     }
 
     #[test]
-    fn docs_example_is_url_bar_and_inert_frame() {
+    fn docs_example_is_url_bar_and_sandboxed_iframe() {
         let mut c = stub("web-preview", "Preview");
         c.props.insert("url".into(), "https://aicronus.com".into());
         assert_eq!(
             render(&c),
-            "<div data-slot=\"web-preview\"><div data-slot=\"web-preview-navigation\"><input data-slot=\"web-preview-url\" type=\"url\" placeholder=\"Enter URL...\" aria-label=\"Enter URL...\" value=\"https://aicronus.com\"></div><div data-slot=\"web-preview-body\"><div title=\"Preview\"></div></div></div>"
+            "<div data-slot=\"web-preview\"><div data-slot=\"web-preview-navigation\"><input data-slot=\"web-preview-url\" type=\"url\" placeholder=\"Enter URL...\" aria-label=\"Enter URL...\" value=\"https://aicronus.com\"></div><div data-slot=\"web-preview-body\"><iframe data-slot=\"web-preview-iframe\" title=\"Preview\" sandbox=\"allow-scripts allow-same-origin\" src=\"https://aicronus.com\"></iframe></div></div>"
         );
     }
 
@@ -165,9 +187,10 @@ mod tests {
         c.items.push(line("item", "Failed", &[("level", "error")]));
         let html = render(&c);
         assert!(!html.contains("value="));
-        assert!(!html.contains("<iframe"));
-        assert!(html.contains("<div data-slot=\"web-preview-body\"><div title=\"&lt;b&gt;&quot;Frame&quot;&lt;/b&gt;\"></div></div>"));
-        assert!(html.contains("<button type=\"button\" data-slot=\"web-preview-navigation-button\" data-variant=\"ghost\" aria-label=\"Back\" interestfor=\"cui-web-preview-web-preview-tip\" aria-describedby=\"cui-web-preview-web-preview-tip\" disabled><svg"));
+        assert!(!html.contains("javascript:"));
+        assert!(html.contains("<div data-slot=\"web-preview-body\"><iframe data-slot=\"web-preview-iframe\" title=\"&lt;b&gt;&quot;Frame&quot;&lt;/b&gt;\" sandbox=\"allow-scripts allow-same-origin\" src=\"about:blank\"></iframe></div>"));
+        assert!(html.contains("<button type=\"button\" data-slot=\"web-preview-navigation-button\" data-variant=\"ghost\" aria-label=\"Back\" interestfor=\"cui-web-preview-web-preview-tip\" aria-describedby=\"cui-web-preview-web-preview-tip\" data-web-preview-nav=\"back\"><svg"));
+        assert!(!html.contains("navigation-button\" data-variant=\"ghost\" aria-label=\"Back\" interestfor=\"cui-web-preview-web-preview-tip\" aria-describedby=\"cui-web-preview-web-preview-tip\" disabled"));
         assert!(html.contains("role=\"tooltip\">Back</div><input"));
         assert!(html.contains("<div data-slot=\"web-preview-console\"><div data-state=\"closed\"><label><input type=\"checkbox\" id=\"cui-web-preview-web-preview-console\" aria-label=\"Console\" aria-controls=\"cui-web-preview-web-preview-console-content\"><button type=\"button\" data-slot=\"button\" data-variant=\"ghost\" data-state=\"closed\" aria-expanded=\"false\" tabindex=\"-1\" aria-hidden=\"true\"><span>Console<span data-slot=\"badge\" data-variant=\"secondary\">2</span></span><svg"));
         assert!(html.contains("<div data-level=\"log\"><span data-slot=\"badge\" data-variant=\"secondary\">log</span><span>10:24:03 AM</span><span>Boot &lt;ok&gt;</span></div><div data-level=\"error\"><span data-slot=\"badge\" data-variant=\"destructive\">error</span><span></span><span>Failed</span></div>"));
@@ -182,6 +205,7 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("aria-label=\"Enter URL...\"></div>"));
         assert!(!html.contains(" value="));
+        assert!(html.contains("src=\"about:blank\""));
         assert!(html.contains("<div><p>No console output</p></div>"));
         assert!(html.contains("data-variant=\"secondary\">0</span>"));
     }
@@ -190,7 +214,7 @@ mod tests {
     fn chrome_is_token_only() {
         let css = include_str!("cronus_ui_css/web-preview.css");
         assert!(css.contains("[data-slot=\"web-preview-url\"]"));
-        assert!(css.contains("[data-slot=\"web-preview-body\"] > div"));
+        assert!(css.contains("[data-slot=\"web-preview-iframe\"]"));
         assert!(css.contains("height: 14rem"));
         assert!(!css.contains("zinc-"));
     }

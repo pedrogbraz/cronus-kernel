@@ -179,6 +179,9 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"hover-card-content\"]:popover-open {\n  display: block; margin: 0; transform: none;"
         ));
+        assert!(css.contains(
+            "[data-slot=\"hover-card-content\"][popover]:popover-open {\n    top: calc(anchor(bottom) + 4px);"
+        ));
         assert!(css.contains("[data-slot=\"button\"]:has(+ [data-slot=\"hover-card-content\"])"));
         assert!(css.contains("z-index: 50"));
         assert!(css.contains("width: 16rem"));

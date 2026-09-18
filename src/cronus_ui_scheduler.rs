@@ -19,9 +19,9 @@
 //! (0 = Sunday … 6 = Saturday); `aria-label:"…"` names the grid (React
 //! `ariaLabel`, default "Event calendar").
 //!
-//! Zero JS divergences, all matching React's idle state: Prev/Today/Next and
-//! the event chips are `disabled` buttons (month navigation and
-//! `onEventClick` need a runtime). Not interact `calendar("scheduler")`.
+//! Prev/Today/Next are enabled `data-sched-nav` buttons (page runtime may
+//! switch the visible month). Event chips are enabled `<button type="button">`s.
+//! Not interact `calendar("scheduler")`.
 
 use crate::cronus_ui_kit::{attr_nonempty, attr_num, esc, label_of};
 use crate::parser::ComponentNode;
@@ -96,7 +96,7 @@ pub fn render(comp: &ComponentNode) -> String {
     }
 
     format!(
-        "<div data-slot=\"scheduler\"><div><h2 data-slot=\"scheduler-title\">{title}</h2><div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" aria-label=\"Previous month\" disabled>{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" disabled>Today</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" aria-label=\"Next month\" disabled>{CHEVRON_RIGHT}</button></div></div><table data-slot=\"scheduler-grid\" aria-label=\"{grid_label}\"><thead data-slot=\"scheduler-weekdays\"><tr>{heads}</tr></thead><tbody>{rows}</tbody></table></div>"
+        "<div data-slot=\"scheduler\"><div><h2 data-slot=\"scheduler-title\">{title}</h2><div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" data-sched-nav=\"prev\" aria-label=\"Previous month\">{CHEVRON_LEFT}</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" data-sched-nav=\"today\">Today</button><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" data-sched-nav=\"next\" aria-label=\"Next month\">{CHEVRON_RIGHT}</button></div></div><table data-slot=\"scheduler-grid\" aria-label=\"{grid_label}\"><thead data-slot=\"scheduler-weekdays\"><tr>{heads}</tr></thead><tbody>{rows}</tbody></table></div>"
     )
 }
 
@@ -128,7 +128,7 @@ fn cell(day: i64, year: i64, month: u32, today: Option<i64>, events: &[Event]) -
                 format!(" class=\"c-{}\"", e.color)
             };
             format!(
-                "<button type=\"button\" data-slot=\"scheduler-event\"{class} title=\"{t}\" disabled>{t}</button>",
+                "<button type=\"button\" data-slot=\"scheduler-event\"{class} title=\"{t}\">{t}</button>",
                 t = e.title
             )
         })
@@ -303,6 +303,7 @@ mod tests {
         assert!(!html.contains("grid-template-columns:repeat(7,1fr)"));
         assert!(!html.contains("<input"));
         assert!(!html.contains("calendar("));
+        assert!(!html.contains(" disabled"));
     }
 
     fn audit_source() -> crate::parser::ComponentNode {
@@ -328,14 +329,15 @@ mod tests {
     #[test]
     fn audit_source_renders_june_2026_month_grid() {
         let html = audit_source_html();
-        assert!(html.starts_with("<div data-slot=\"scheduler\"><div><h2 data-slot=\"scheduler-title\">June 2026</h2><div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" aria-label=\"Previous month\" disabled>"));
-        assert!(html.contains("<button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" disabled>Today</button>"));
+        assert!(html.starts_with("<div data-slot=\"scheduler\"><div><h2 data-slot=\"scheduler-title\">June 2026</h2><div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" data-sched-nav=\"prev\" aria-label=\"Previous month\">"));
+        assert!(html.contains("<button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" data-sched-nav=\"today\">Today</button>"));
+        assert!(html.contains("data-sched-nav=\"next\" aria-label=\"Next month\">"));
         assert!(html.contains("<table data-slot=\"scheduler-grid\" aria-label=\"Event calendar\"><thead data-slot=\"scheduler-weekdays\"><tr><th scope=\"col\">Sun</th>"));
         assert_eq!(html.matches("<tr>").count(), 6);
         assert_eq!(html.matches("<td ").count(), 35);
         assert!(html.contains("<tbody><tr><td aria-label=\"Sunday, May 31, 2026\" data-outside=\"true\"><span>31</span><span></span></td><td aria-label=\"Monday, June 1, 2026\"><span>1</span><span></span></td>"));
-        assert!(html.contains("<td aria-label=\"Monday, June 15, 2026\"><span>15</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Launch call\" disabled>Launch call</button></span></td>"));
-        assert!(html.contains("<td aria-label=\"Saturday, June 20, 2026\"><span>20</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Webinar\" disabled>Webinar</button></span></td>"));
+        assert!(html.contains("<td aria-label=\"Monday, June 15, 2026\"><span>15</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Launch call\">Launch call</button></span></td>"));
+        assert!(html.contains("<td aria-label=\"Saturday, June 20, 2026\"><span>20</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Webinar\">Webinar</button></span></td>"));
         assert!(html.ends_with("<td aria-label=\"Saturday, July 4, 2026\" data-outside=\"true\"><span>4</span><span></span></td></tr></tbody></table></div>"));
         // No fixture default leaks into apps: without `today`, no day is current.
         assert!(!html.contains("aria-current"));
@@ -373,7 +375,7 @@ mod tests {
             .config
             .insert("today".into(), "2026-03-10".into());
         let html = render(&c);
-        assert!(html.contains("aria-label=\"Tuesday, March 3, 2026\"><span>3</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Standup\" disabled>Standup</button>"));
+        assert!(html.contains("aria-label=\"Tuesday, March 3, 2026\"><span>3</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Standup\">Standup</button>"));
         assert!(html.contains("aria-label=\"Tuesday, March 10, 2026\" aria-current=\"date\">"));
         reject_interact(&html);
     }
@@ -405,10 +407,10 @@ mod tests {
         assert!(html.contains(
             "<td aria-label=\"Monday, June 1, 2026\" aria-current=\"date\"><span>1</span>"
         ));
-        assert!(html.contains("<td aria-label=\"Tuesday, June 2, 2026\"><span>2</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Team standup\" disabled>Team standup</button></span></td>"));
-        assert!(html.contains("<button type=\"button\" data-slot=\"scheduler-event\" class=\"c-info\" title=\"Design review\" disabled>Design review</button>"));
-        assert!(html.contains("<td aria-label=\"Friday, June 12, 2026\"><span>12</span><span><button type=\"button\" data-slot=\"scheduler-event\" class=\"c-success\" title=\"v2 ship\" disabled>v2 ship</button><button type=\"button\" data-slot=\"scheduler-event\" class=\"c-warning\" title=\"Sprint retro\" disabled>Sprint retro</button></span></td>"));
-        assert!(html.contains("data-slot=\"scheduler-event\" title=\"Launch party\" disabled>"));
+        assert!(html.contains("<td aria-label=\"Tuesday, June 2, 2026\"><span>2</span><span><button type=\"button\" data-slot=\"scheduler-event\" title=\"Team standup\">Team standup</button></span></td>"));
+        assert!(html.contains("<button type=\"button\" data-slot=\"scheduler-event\" class=\"c-info\" title=\"Design review\">Design review</button>"));
+        assert!(html.contains("<td aria-label=\"Friday, June 12, 2026\"><span>12</span><span><button type=\"button\" data-slot=\"scheduler-event\" class=\"c-success\" title=\"v2 ship\">v2 ship</button><button type=\"button\" data-slot=\"scheduler-event\" class=\"c-warning\" title=\"Sprint retro\">Sprint retro</button></span></td>"));
+        assert!(html.contains("data-slot=\"scheduler-event\" title=\"Launch party\">"));
         assert!(!html.contains("c-bogus"));
         reject_interact(&html);
     }

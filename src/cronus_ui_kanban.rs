@@ -12,10 +12,9 @@
 //! (a trailing title makes an empty column). The `label` names the board
 //! (`aria-label`) and is never a column or card.
 //!
-//! Zero JS (Wave 1t control contract): dnd-kit drag and keyboard reordering
-//! need a runtime, so the grip is React's native `<button>` marked `disabled`,
-//! same box and idle look. Not interact `kanban()` (inline SURF columns) or
-//! catalog `display()` SURF `<section>`.
+//! Cards are native `draggable="true"` with an enabled grip; the page runtime
+//! moves them between `data-slot="kanban-column"` drop targets. Not interact
+//! `kanban()` (inline SURF columns) or catalog `display()` SURF `<section>`.
 
 use crate::cronus_ui_kit::{attr_nonempty, esc};
 use crate::parser::ComponentNode;
@@ -51,7 +50,7 @@ fn column(title: &str, cards: &[Entry]) -> String {
                 .map(|d| format!("<span data-slot=\"kanban-card-description\">{d}</span>"))
                 .unwrap_or_default();
             format!(
-                "<li data-slot=\"kanban-card\"><button type=\"button\" data-slot=\"kanban-drag-handle\" aria-label=\"Reorder card\" disabled>{GRIP}</button><div data-slot=\"kanban-card-body\"><span data-slot=\"kanban-card-title\">{}</span>{description}</div></li>",
+                "<li data-slot=\"kanban-card\" draggable=\"true\"><button type=\"button\" data-slot=\"kanban-drag-handle\" aria-label=\"Reorder card\">{GRIP}</button><div data-slot=\"kanban-card-body\"><span data-slot=\"kanban-card-title\">{}</span>{description}</div></li>",
                 c.text
             )
         })
@@ -162,7 +161,7 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
-        assert!(!html.contains("draggable"));
+        assert!(html.contains("draggable=\"true\""));
         assert!(!html.contains("min-width:10rem"));
         assert!(!html.contains("kanban("));
     }
@@ -183,7 +182,7 @@ mod tests {
         let html = render(&c);
         let col = |title: &str, card: &str| {
             format!(
-                "<section data-slot=\"kanban-column\" aria-label=\"{title}\"><header data-slot=\"kanban-column-header\"><h3 data-slot=\"kanban-column-title\">{title}</h3><span data-slot=\"kanban-column-count\" data-variant=\"secondary\">1</span></header><ul data-slot=\"kanban-column-list\"><li data-slot=\"kanban-card\"><button type=\"button\" data-slot=\"kanban-drag-handle\" aria-label=\"Reorder card\" disabled>{GRIP}</button><div data-slot=\"kanban-card-body\"><span data-slot=\"kanban-card-title\">{card}</span></div></li></ul></section>"
+                "<section data-slot=\"kanban-column\" aria-label=\"{title}\"><header data-slot=\"kanban-column-header\"><h3 data-slot=\"kanban-column-title\">{title}</h3><span data-slot=\"kanban-column-count\" data-variant=\"secondary\">1</span></header><ul data-slot=\"kanban-column-list\"><li data-slot=\"kanban-card\" draggable=\"true\"><button type=\"button\" data-slot=\"kanban-drag-handle\" aria-label=\"Reorder card\">{GRIP}</button><div data-slot=\"kanban-card-body\"><span data-slot=\"kanban-card-title\">{card}</span></div></li></ul></section>"
             )
         };
         assert_eq!(
@@ -274,12 +273,17 @@ mod tests {
     }
 
     #[test]
-    fn drag_handle_is_disabled_native_button() {
+    fn drag_handle_is_enabled_and_cards_are_draggable() {
         let mut c = stub("kanban", "Board");
         c.items.push(extra("text", "Todo"));
         c.items.push(extra("text", "Ship"));
         let html = render(&c);
-        assert!(html.contains("<button type=\"button\" data-slot=\"kanban-drag-handle\" aria-label=\"Reorder card\" disabled>"));
+        assert!(html.contains(
+            "<button type=\"button\" data-slot=\"kanban-drag-handle\" aria-label=\"Reorder card\">"
+        ));
+        assert!(html.contains("<li data-slot=\"kanban-card\" draggable=\"true\">"));
+        assert!(html.contains("data-slot=\"kanban-column\""));
+        assert!(!html.contains(" disabled"));
         assert!(!html.contains("tabindex"));
         assert!(!html.contains("aria-roledescription"));
     }

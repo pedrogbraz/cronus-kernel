@@ -30,10 +30,11 @@
 //! Zero JS: row checkboxes, the column-visibility menu and the density switch
 //! are native inputs whose `:checked` state drives CSS (the bulk bar and the
 //! selected counts use CSS counters, hidden columns `:has()`); popovers open
-//! natively. Sorting, searching, faceted filtering, paging and retry need a
-//! runtime, so those controls render as React's idle native elements marked
-//! `disabled` (the idle look is kept; the disabled first/previous page buttons
-//! are dimmed like React's). Not interact `table("data-table")`.
+//! natively. Sortable headers carry `data-sort` (page runtime sorts the table).
+//! Search is an enabled `data-table-search` input (`data-search` + row
+//! `data-search-item`). Paging buttons carry `data-table-page`. Facet filters
+//! are native checkboxes. Retry is an enabled button. Not interact
+//! `table("data-table")`.
 
 use std::collections::HashMap;
 
@@ -371,8 +372,13 @@ impl<'a> Table<'a> {
         } else {
             ""
         };
+        let search_target = if self.opt("searchable") {
+            format!(" data-search-target=\"{}\"", self.id("search"))
+        } else {
+            String::new()
+        };
         let table = format!(
-            "<div data-slot=\"data-table-container\"{busy}>{loading}<section data-slot=\"table-container\" tabindex=\"0\" aria-label=\"Table\"><table data-slot=\"table\"><thead data-slot=\"table-header\"><tr data-slot=\"table-row\">{}</tr></thead><tbody data-slot=\"table-body\">{}</tbody></table></section></div>",
+            "<div data-slot=\"data-table-container\"{busy}>{loading}<section data-slot=\"table-container\" tabindex=\"0\" aria-label=\"Table\"><table data-slot=\"table\"{search_target}><thead data-slot=\"table-header\"><tr data-slot=\"table-row\">{}</tr></thead><tbody data-slot=\"table-body\">{}</tbody></table></section></div>",
             self.head(),
             self.body()
         );
@@ -388,23 +394,29 @@ impl<'a> Table<'a> {
                 checkbox("Select all rows on this page", &self.id("select-all"))
             ));
         }
-        for c in &self.columns {
+        for (i, c) in self.columns.iter().enumerate() {
             let class = class_attr(&c.classes);
+            let idx = i + usize::from(self.selection);
+            let sort_attr = if c.sort == Sort::None {
+                String::new()
+            } else {
+                format!(" data-sort=\"{idx}\"")
+            };
             let inner = match c.sort {
                 Sort::Header => format!(
-                    "<button type=\"button\" data-slot=\"data-table-column-header\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn\" aria-label=\"Sort by {t}. Activate to sort ascending.\" disabled><span>{t}</span>{}</button>",
+                    "<button type=\"button\" data-slot=\"data-table-column-header\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn\" data-sort=\"{idx}\" aria-label=\"Sort by {t}. Activate to sort ascending.\"><span>{t}</span>{}</button>",
                     icon_class("chevrons-up-down", "opacity-60"),
                     t = c.title
                 ),
                 Sort::Button => format!(
-                    "<button type=\"button\" data-slot=\"button\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn cui-dt-sort idle\" disabled>{}{}</button>",
+                    "<button type=\"button\" data-slot=\"button\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn cui-dt-sort\" data-sort=\"{idx}\">{}{}</button>",
                     c.title,
                     crate::cronus_ui_icons::svg_or_empty("arrow-up-down")
                 ),
                 Sort::None => c.title.clone(),
             };
             out.push_str(&format!(
-                "<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\"{class}>{inner}</th>"
+                "<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\"{sort_attr}{class}>{inner}</th>"
             ));
         }
         out
@@ -426,7 +438,7 @@ impl<'a> Table<'a> {
         if let Some(error) = &self.error {
             let retry = if self.opt("retry") {
                 format!(
-                    "<button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn idle\" disabled>{}Retry</button>",
+                    "<button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\">{}Retry</button>",
                     crate::cronus_ui_icons::svg_or_empty("refresh-cw")
                 )
             } else {
@@ -458,6 +470,11 @@ impl<'a> Table<'a> {
                 "<tr data-slot=\"table-row\"><td data-slot=\"table-cell\" colspan=\"{span}\" class=\"cui-dt-empty\">{inner}</td></tr>"
             );
         }
+        let search_item = if self.opt("searchable") {
+            " data-search-item"
+        } else {
+            ""
+        };
         let visible: &[Vec<Cell>] = if self.pagination {
             &self.rows[..self.rows.len().min(self.page_size)]
         } else {
@@ -490,7 +507,7 @@ impl<'a> Table<'a> {
                     };
                     cells.push_str(&format!("<td data-slot=\"table-cell\"{class}>{inner}</td>"));
                 }
-                format!("<tr data-slot=\"table-row\">{cells}</tr>")
+                format!("<tr data-slot=\"table-row\"{search_item}>{cells}</tr>")
             })
             .collect()
     }
@@ -511,7 +528,7 @@ impl<'a> Table<'a> {
                 esc(attr_nonempty(self.comp, "search-placeholder").unwrap_or("Search…"));
             let id = self.id("search");
             out.push_str(&format!(
-                "<div class=\"cui-dt-search\">{}<label for=\"{id}\" class=\"sr-only\">{placeholder}</label><input data-slot=\"input\" type=\"search\" id=\"{id}\" placeholder=\"{placeholder}\" class=\"h-9 ps-9\" /></div>",
+                "<div class=\"cui-dt-search\">{}<label for=\"{id}\" class=\"sr-only\">{placeholder}</label><input data-slot=\"data-table-search\" type=\"search\" id=\"{id}\" placeholder=\"{placeholder}\" class=\"h-9 ps-9\" data-search=\"{id}\" /></div>",
                 icon_class("search", "text-muted")
             ));
         }
@@ -686,10 +703,13 @@ impl<'a> Table<'a> {
                 )
             })
             .collect();
-        let nav_button = |label: &str, glyph: String, enabled: bool| {
-            let class = if enabled { "cui-btn idle" } else { "cui-btn" };
+        let nav_button = |label: &str, glyph: String, enabled: bool, page: Option<&str>| {
+            let disabled = if enabled { "" } else { " disabled" };
+            let page_attr = page
+                .map(|p| format!(" data-table-page=\"{p}\""))
+                .unwrap_or_default();
             format!(
-                "<button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" class=\"{class}\" aria-label=\"{label}\" disabled>{glyph}</button>"
+                "<button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" class=\"cui-btn\"{page_attr} aria-label=\"{label}\"{disabled}>{glyph}</button>"
             )
         };
         let nav = format!(
@@ -697,22 +717,26 @@ impl<'a> Table<'a> {
             nav_button(
                 "Go to first page",
                 format!("{SVG_OPEN}{CHEVRONS_LEFT}"),
-                false
+                false,
+                None
             ),
             nav_button(
                 "Go to previous page",
                 crate::cronus_ui_icons::svg_or_empty("chevron-left"),
-                false
+                true,
+                Some("prev")
             ),
             nav_button(
                 "Go to next page",
                 crate::cronus_ui_icons::svg_or_empty("chevron-right"),
-                can_next
+                true,
+                Some("next")
             ),
             nav_button(
                 "Go to last page",
                 format!("{SVG_OPEN}{CHEVRONS_RIGHT}"),
-                can_next
+                can_next,
+                None
             ),
         );
         let pagination = format!(
@@ -924,7 +948,7 @@ mod tests {
     #[test]
     fn keyed_rows_sort_headers_and_column_styles() {
         let html = render(&members());
-        assert!(html.contains("<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\" class=\"font-medium\"><button type=\"button\" data-slot=\"data-table-column-header\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn\" aria-label=\"Sort by Name. Activate to sort ascending.\" disabled><span>Name</span><svg class=\"opacity-60\" "));
+        assert!(html.contains("<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\" data-sort=\"0\" class=\"font-medium\"><button type=\"button\" data-slot=\"data-table-column-header\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn\" data-sort=\"0\" aria-label=\"Sort by Name. Activate to sort ascending.\"><span>Name</span><svg class=\"opacity-60\" "));
         assert!(html.contains("data-icon=\"chevrons-up-down\""));
         assert!(html.contains("<td data-slot=\"table-cell\" class=\"font-medium\">Ada Lovelace</td><td data-slot=\"table-cell\" class=\"text-secondary\">ada@cronus.dev</td><td data-slot=\"table-cell\"><span data-slot=\"badge\" data-variant=\"outline\">Owner</span></td><td data-slot=\"table-cell\" class=\"capitalize\"><span data-slot=\"badge\" data-variant=\"success\">active</span></td><td data-slot=\"table-cell\" class=\"font-mono text-secondary\">5</td>"));
         assert!(html.contains("<span data-slot=\"badge\" data-variant=\"warning\">invited</span>"));
@@ -949,7 +973,7 @@ mod tests {
             ),
         ];
         let html = render(&c);
-        assert!(html.contains("<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\" class=\"font-mono\"><button type=\"button\" data-slot=\"button\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn cui-dt-sort idle\" disabled>Amount<svg "));
+        assert!(html.contains("<th data-slot=\"table-head\" colspan=\"1\" scope=\"col\" aria-sort=\"none\" data-sort=\"2\" class=\"font-mono\"><button type=\"button\" data-slot=\"button\" data-variant=\"ghost\" data-size=\"sm\" class=\"cui-btn cui-dt-sort\" data-sort=\"2\">Amount<svg "));
         assert!(html.contains("data-icon=\"arrow-up-down\""));
         assert!(html.contains("<td data-slot=\"table-cell\" class=\"capitalize\">success</td><td data-slot=\"table-cell\" class=\"lowercase\">ken99@example.com</td><td data-slot=\"table-cell\" class=\"font-mono\">$316.00</td>"));
         reject_interact(&html);
@@ -969,7 +993,10 @@ mod tests {
             .insert("filter-icons".into(), "check,circle-dashed".into());
         let html = render(&c);
         assert!(html.contains("<div data-slot=\"data-table\"><div role=\"group\" aria-label=\"Table controls\" data-slot=\"data-table-toolbar\"><div class=\"cui-dt-search\"><svg class=\"text-muted\" "));
-        assert!(html.contains("<label for=\"cui-data-table-search\" class=\"sr-only\">Search members…</label><input data-slot=\"input\" type=\"search\" id=\"cui-data-table-search\" placeholder=\"Search members…\" class=\"h-9 ps-9\" />"));
+        assert!(html.contains("<label for=\"cui-data-table-search\" class=\"sr-only\">Search members…</label><input data-slot=\"data-table-search\" type=\"search\" id=\"cui-data-table-search\" placeholder=\"Search members…\" class=\"h-9 ps-9\" data-search=\"cui-data-table-search\" />"));
+        assert!(html
+            .contains("<table data-slot=\"table\" data-search-target=\"cui-data-table-search\">"));
+        assert!(html.contains("<tr data-slot=\"table-row\" data-search-item>"));
         assert!(html.contains("<button type=\"button\" id=\"cui-data-table-filter\" data-slot=\"data-table-faceted-filter\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\" popovertarget=\"cui-data-table-filter-menu\" aria-haspopup=\"menu\"><svg "));
         assert!(html.contains("</svg>Status</button><div id=\"cui-data-table-filter-menu\" popover=\"auto\" data-slot=\"dropdown-menu-content\" role=\"menu\" aria-orientation=\"vertical\" anchor=\"cui-data-table-filter\" class=\"cui-dt-filter-menu\"><div data-slot=\"dropdown-menu-label\">Status</div><div data-slot=\"dropdown-menu-separator\" role=\"separator\"></div><label data-slot=\"dropdown-menu-checkbox-item\" role=\"menuitemcheckbox\"><input type=\"checkbox\" value=\"active\">"));
         assert!(html.contains("data-icon=\"circle-dashed\""));
@@ -1004,7 +1031,8 @@ mod tests {
         assert!(html.contains("<label for=\"cui-data-table-page-size\">Rows per page</label><button type=\"button\" id=\"cui-data-table-page-size\" role=\"combobox\" aria-expanded=\"false\" aria-autocomplete=\"none\" aria-label=\"Rows per page\" data-state=\"closed\" data-slot=\"select-trigger\" class=\"h-8\" popovertarget=\"cui-data-table-page-size-menu\" aria-controls=\"cui-data-table-page-size-menu\"><span data-o1=\"5\" data-o2=\"10\" data-o3=\"20\">5</span>"));
         assert!(html.contains("<label data-slot=\"select-item\" data-option=\"1\"><input type=\"radio\" name=\"cui-data-table-page-size-value\" value=\"5\" checked><span>5</span></label>"));
         assert!(html.contains("<p class=\"cui-dt-page\">Page 1 of 3</p><nav aria-label=\"Pagination\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"icon-sm\" class=\"cui-btn\" aria-label=\"Go to first page\" disabled>"));
-        assert!(html.contains("class=\"cui-btn idle\" aria-label=\"Go to next page\" disabled>"));
+        assert!(html.contains("data-table-page=\"prev\" aria-label=\"Go to previous page\">"));
+        assert!(html.contains("data-table-page=\"next\" aria-label=\"Go to next page\">"));
         assert!(html.contains("data-icon=\"chevron-left\""));
         reject_interact(&html);
     }
@@ -1102,7 +1130,7 @@ mod tests {
         f.props.insert("retry".into(), "true".into());
         let html = render(&f);
         assert!(html.contains("<td data-slot=\"table-cell\" colspan=\"5\" class=\"cui-dt-error\"><div><svg class=\"text-error\" "));
-        assert!(html.contains("<div role=\"alert\">Couldn’t load &lt;team&gt;.</div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn idle\" disabled><svg "));
+        assert!(html.contains("<div role=\"alert\">Couldn’t load &lt;team&gt;.</div><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\"><svg "));
         assert!(html.contains("</svg>Retry</button></div></td>"));
         assert!(!html.contains("data-table-pagination"));
         reject_interact(&html);

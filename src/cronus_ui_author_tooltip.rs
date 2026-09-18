@@ -10,10 +10,10 @@
 //! `github`; X keeps its glyph, the others use lucide `external-link` like
 //! React's neutral defaults) and an optional bio line.
 //!
-//! Zero JS: the card opens on `:hover` / `:focus-within` of the wrapper (the
-//! trigger is `tabindex="0"` so keyboard users reach it) with React's
-//! `cronus-pop-in` 150ms entrance. Radix's `delayDuration={0}` means no
-//! hover delay, which CSS matches.
+//! Zero JS: the trigger's `interestfor` opens a `popover="hint"` card (live.js
+//! `showPopover` after 200ms, native interest invokers in Chromium). The
+//! trigger is `tabindex="0"` so keyboard focus also reveals it. CSS
+//! `:popover-open` runs React's `cronus-pop-in` 150ms entrance.
 //!
 //! Inputs: `label "Aryan"` (name), `role:"Founder & CEO"`, `avatar:"https://…"`,
 //! `github:` / `twitter:` / `linkedin:` URLs, `size:sm|md|lg|xl` (prop or style
@@ -61,8 +61,9 @@ pub fn render(comp: &ComponentNode) -> String {
         .map(|t| format!("<div>{}</div>", esc(t)))
         .unwrap_or_default();
     let content_id = crate::cronus_ui_kit::instance_id(comp, "author-tooltip");
+    let trigger_id = format!("{content_id}-trigger");
     let trigger = format!(
-        "<span data-slot=\"avatar\" class=\"s-{size}\" aria-label=\"{name}\" tabindex=\"0\" data-state=\"closed\" aria-describedby=\"{content_id}\">{}<span data-slot=\"avatar-fallback\">{fallback}</span></span>",
+        "<span id=\"{trigger_id}\" data-slot=\"avatar\" class=\"s-{size}\" aria-label=\"{name}\" tabindex=\"0\" data-state=\"closed\" interestfor=\"{content_id}\" aria-describedby=\"{content_id}\">{}<span data-slot=\"avatar-fallback\">{fallback}</span></span>",
         image
             .as_deref()
             .map(|src| format!("<img data-slot=\"avatar-image\" src=\"{src}\" alt=\"{name}\">"))
@@ -76,7 +77,7 @@ pub fn render(comp: &ComponentNode) -> String {
             .unwrap_or_default()
     );
     format!(
-        "<span data-slot=\"author-tooltip\">{trigger}<div id=\"{content_id}\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"top\"><div><div>{card_avatar}<div><span>{name}</span><span>{role}</span></div>{links}</div>{bio}</div></div></span>"
+        "<span data-slot=\"author-tooltip\">{trigger}<div id=\"{content_id}\" popover=\"hint\" anchor=\"{trigger_id}\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"top\"><div><div>{card_avatar}<div><span>{name}</span><span>{role}</span></div>{links}</div>{bio}</div></div></span>"
     )
 }
 
@@ -107,9 +108,7 @@ mod tests {
     }
 
     fn reject_js(html: &str) {
-        for bad in [
-            "<script", "style=", "onclick", "onmouse", "<canvas", "popover",
-        ] {
+        for bad in ["<script", "style=", "onclick", "onmouse", "<canvas"] {
             assert!(!html.contains(bad), "{bad} in {html}");
         }
     }
@@ -128,7 +127,7 @@ mod tests {
             "https://linkedin.com/in/aryanranderiya".into(),
         );
         let html = render(&c);
-        assert!(html.starts_with("<span data-slot=\"author-tooltip\"><span data-slot=\"avatar\" class=\"s-sm\" aria-label=\"Aryan\" tabindex=\"0\" data-state=\"closed\" aria-describedby=\"cui-author-tooltip-author-tooltip\"><img data-slot=\"avatar-image\" src=\"https://github.com/aryanranderiya.png\" alt=\"Aryan\"><span data-slot=\"avatar-fallback\">A</span></span><div id=\"cui-author-tooltip-author-tooltip\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"top\"><div><div><span data-slot=\"avatar\"><img data-slot=\"avatar-image\" src=\"https://github.com/aryanranderiya.png\" alt=\"\"><span data-slot=\"avatar-fallback\">A</span></span><div><span>Aryan</span><span>Founder &amp; CEO</span></div><div><a href=\"https://linkedin.com/in/aryanranderiya\" target=\"_blank\" rel=\"noopener noreferrer\" aria-label=\"LinkedIn\"><svg"));
+        assert!(html.starts_with("<span data-slot=\"author-tooltip\"><span id=\"cui-author-tooltip-author-tooltip-trigger\" data-slot=\"avatar\" class=\"s-sm\" aria-label=\"Aryan\" tabindex=\"0\" data-state=\"closed\" interestfor=\"cui-author-tooltip-author-tooltip\" aria-describedby=\"cui-author-tooltip-author-tooltip\"><img data-slot=\"avatar-image\" src=\"https://github.com/aryanranderiya.png\" alt=\"Aryan\"><span data-slot=\"avatar-fallback\">A</span></span><div id=\"cui-author-tooltip-author-tooltip\" popover=\"hint\" anchor=\"cui-author-tooltip-author-tooltip-trigger\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"top\"><div><div><span data-slot=\"avatar\"><img data-slot=\"avatar-image\" src=\"https://github.com/aryanranderiya.png\" alt=\"\"><span data-slot=\"avatar-fallback\">A</span></span><div><span>Aryan</span><span>Founder &amp; CEO</span></div><div><a href=\"https://linkedin.com/in/aryanranderiya\" target=\"_blank\" rel=\"noopener noreferrer\" aria-label=\"LinkedIn\"><svg"));
         assert!(html.contains("data-icon=\"external-link\""));
         assert!(html.contains("aria-label=\"X\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" fill=\"currentColor\" data-icon=\"x-brand\"><title>X</title>"));
         assert!(html.contains("aria-label=\"GitHub\"><svg"));
@@ -197,6 +196,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"author-tooltip\"] > [data-slot=\"avatar\"].s-xl { width: 4rem; height: 4rem; }"));
         assert!(css.contains("cursor: help"));
         assert!(css.contains("[data-slot=\"author-tooltip\"]:is(:hover, :focus-within) > [data-slot=\"tooltip-content\"]"));
+        assert!(css.contains(
+            "[data-slot=\"author-tooltip\"] > [data-slot=\"tooltip-content\"]:popover-open"
+        ));
         assert!(css.contains("cronus-pop-in 150ms var(--ease-out-quart) both"));
         assert!(css.contains("var(--cronus-surface-floating)"));
         assert!(!css.contains("#"));

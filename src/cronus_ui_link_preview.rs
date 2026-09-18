@@ -9,13 +9,13 @@
 //! `Invalid URL` in the error tone, both like React.
 //!
 //! DOM, inside one anchoring `<span data-slot="link-preview">`:
-//! `<a href target="_blank" rel="noopener noreferrer" data-state="closed">`
-//! + `<span data-slot="tooltip-content" role="tooltip">` > unfurl column
+//! `<a href target="_blank" rel="noopener noreferrer" data-state="closed" interestfor>`
+//! + `<span popover="hint" data-slot="tooltip-content" role="tooltip">` > unfurl column
 //! (spans styled as blocks: a `<div>` would close the docs' `<p>`).
 //! `prefix:"Check out the"` / `suffix:"to browse the catalog."` wrap the
 //! whole thing in the docs' `<p>` paragraph (`max-w-prose text-fg-secondary`).
-//! Zero JS: `:hover` / `:focus-within` reveal with the `cronus-pop-in`
-//! entrance (Radix `delayDuration={0}`).
+//! Zero JS: the anchor's `interestfor` opens a `popover="hint"` unfurl card
+//! (live.js `showPopover` after 200ms). CSS `:popover-open` runs `cronus-pop-in`.
 //!
 //! Inputs: `label "Cronus UI repository"` (link text), `href:"https://…"`,
 //! `site:`, `title`, `text`, `image:`, `favicon:`, `prefix:`, `suffix:`.
@@ -84,8 +84,9 @@ pub fn render(comp: &ComponentNode) -> String {
             out
         }
     };
+    let trigger_id = format!("{content_id}-trigger");
     let inner = format!(
-        "<span data-slot=\"link-preview\"><a href=\"{href}\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" aria-describedby=\"{content_id}\">{label}</a><span id=\"{content_id}\" data-slot=\"tooltip-content\" role=\"tooltip\">{body}</span></span>"
+        "<span data-slot=\"link-preview\"><a id=\"{trigger_id}\" href=\"{href}\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" interestfor=\"{content_id}\" aria-describedby=\"{content_id}\">{label}</a><span id=\"{content_id}\" popover=\"hint\" anchor=\"{trigger_id}\" data-slot=\"tooltip-content\" role=\"tooltip\">{body}</span></span>"
     );
     let prefix = attr_nonempty(comp, "prefix").map(esc);
     let suffix = attr_nonempty(comp, "suffix").map(esc);
@@ -142,9 +143,7 @@ mod tests {
     }
 
     fn reject_js(html: &str) {
-        for bad in [
-            "<script", "style=", "onclick", "onmouse", "<canvas", "popover",
-        ] {
+        for bad in ["<script", "style=", "onclick", "onmouse", "<canvas"] {
             assert!(!html.contains(bad), "{bad} in {html}");
         }
     }
@@ -165,7 +164,7 @@ mod tests {
         push(&mut c, "title", "pedrogbraz/cronus-ui");
         push(&mut c, "text", "Design system for Cronus.");
         let html = render(&c);
-        assert!(html.starts_with("<p class=\"link-preview-prose\">Check out the <span data-slot=\"link-preview\"><a href=\"https://github.com/pedrogbraz/cronus-ui\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" aria-describedby=\"cui-link-preview-link-preview\">Cronus UI repository</a><span id=\"cui-link-preview-link-preview\" data-slot=\"tooltip-content\" role=\"tooltip\"><span><span><img src=\"https://opengraph.githubassets.com/1/pedrogbraz/cronus-ui\" alt=\"Website preview\"></span><span><img width=\"20\" height=\"20\" alt=\"Favicon\" src=\"https://github.com/favicon.ico\"><span>GitHub</span></span><span class=\"lp-title\">pedrogbraz/cronus-ui</span><span class=\"lp-description\">Design system for Cronus.</span><span class=\"lp-url\">github.com/pedrogbraz/cronus-ui</span></span></span></span> to browse the catalog.</p>"));
+        assert!(html.starts_with("<p class=\"link-preview-prose\">Check out the <span data-slot=\"link-preview\"><a id=\"cui-link-preview-link-preview-trigger\" href=\"https://github.com/pedrogbraz/cronus-ui\" target=\"_blank\" rel=\"noopener noreferrer\" data-state=\"closed\" interestfor=\"cui-link-preview-link-preview\" aria-describedby=\"cui-link-preview-link-preview\">Cronus UI repository</a><span id=\"cui-link-preview-link-preview\" popover=\"hint\" anchor=\"cui-link-preview-link-preview-trigger\" data-slot=\"tooltip-content\" role=\"tooltip\"><span><span><img src=\"https://opengraph.githubassets.com/1/pedrogbraz/cronus-ui\" alt=\"Website preview\"></span><span><img width=\"20\" height=\"20\" alt=\"Favicon\" src=\"https://github.com/favicon.ico\"><span>GitHub</span></span><span class=\"lp-title\">pedrogbraz/cronus-ui</span><span class=\"lp-description\">Design system for Cronus.</span><span class=\"lp-url\">github.com/pedrogbraz/cronus-ui</span></span></span></span> to browse the catalog.</p>"));
         reject_js(&html);
     }
 
@@ -188,7 +187,7 @@ mod tests {
         let mut c = link("Bad");
         c.props.insert("href".into(), "javascript:alert(1)".into());
         let html = render(&c);
-        assert!(html.contains("<a href=\"#\""));
+        assert!(html.contains("href=\"#\""));
         assert!(html.contains("<span data-error=\"true\"><svg"));
         assert!(html.contains("<span>Invalid URL</span>"));
         let mut c = link("Mail");
@@ -210,6 +209,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"link-preview\"] > a {"));
         assert!(css.contains("color-mix(in oklab, var(--cronus-primary) 20%, transparent)"));
         assert!(css.contains("[data-slot=\"link-preview\"]:is(:hover, :focus-within) > [data-slot=\"tooltip-content\"]"));
+        assert!(css.contains(
+            "[data-slot=\"link-preview\"] > [data-slot=\"tooltip-content\"]:popover-open"
+        ));
         assert!(css.contains("min-width: 18.75rem; max-width: 18.75rem;"));
         assert!(css.contains("aspect-ratio: 16 / 9"));
         assert!(css.contains("-webkit-line-clamp: 3"));

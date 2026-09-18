@@ -115,6 +115,13 @@ mod tests {
             css.contains("[data-slot=\"tooltip-content\"]:not(:popover-open) { display: none; }")
         );
         assert!(css.contains("[data-slot=\"tooltip-content\"]:popover-open {"));
+        assert!(css.contains(
+            "[data-slot=\"tooltip-content\"][popover]:popover-open {\n  display: block;\n}"
+        ));
         assert!(!css.contains("[data-slot=\"tooltip-trigger\"]"));
+        let catalog = include_str!("cronus_ui_css/catalog.css");
+        assert!(catalog.contains(
+            "[data-slot=\"catalog-frame\"]:has([interestfor]:hover),\n[data-slot=\"catalog-frame\"]:has(:focus-visible) {\n  overflow: visible; z-index: 30;\n}"
+        ));
     }
 }

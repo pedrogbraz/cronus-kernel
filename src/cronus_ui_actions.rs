@@ -8,10 +8,12 @@
 //! `<div popover="hint" data-slot="tooltip-content" role="tooltip">` opened by
 //! the button's `interestfor` (no JS); `tooltip:false` drops it. An item with
 //! a link (`action "Docs" -> "/docs"`) is an `<a data-slot="action">`; a plain
-//! action needs an `onClick`, so it renders as the same native button
-//! `disabled` with React's idle look. `variant:` (ghost, outline, secondary…)
-//! and `size:` (icon-sm, icon, sm, md) on the component or an item follow
-//! React's Button recipe (`data-variant` + `s-*` class).
+//! action is a live `<button type="button">`. Copy-like items (`icon:copy`,
+//! label "Copy", or a `copy:` payload) emit `data-slot="copy-button"` and
+//! `data-copy` so page runtime can write the clipboard. `disabled` only when
+//! the author set it. `variant:` (ghost, outline, secondary…) and `size:`
+//! (icon-sm, icon, sm, md) on the component or an item follow React's Button
+//! recipe (`data-variant` + `s-*` class).
 
 use crate::cronus_ui_kit::{choice, esc, instance_id, label_of, safe_url, truthy};
 use crate::parser::{ComponentItemNode, ComponentNode};
@@ -36,7 +38,17 @@ pub fn render(comp: &ComponentNode) -> String {
         .collect();
     let name = label_of(comp);
     let buttons: String = if items.is_empty() {
-        action(comp, &name, None, None, variant, size, None)
+        action(
+            comp,
+            &name,
+            None,
+            None,
+            variant,
+            size,
+            None,
+            copy_payload_for(&name, None, None, None),
+            author_disabled(comp, None),
+        )
     } else {
         items
             .iter()
@@ -67,6 +79,13 @@ pub fn render(comp: &ComponentNode) -> String {
                     v,
                     s,
                     i.link.as_deref(),
+                    copy_payload_for(
+                        &i.text,
+                        i.config.get("icon").map(String::as_str),
+                        i.config.get("copy").map(String::as_str),
+                        i.config.get("value").map(String::as_str),
+                    ),
+                    author_disabled(comp, Some(i)),
                 )
             })
             .collect()
@@ -74,7 +93,35 @@ pub fn render(comp: &ComponentNode) -> String {
     format!("<div data-slot=\"actions\">{buttons}</div>")
 }
 
-/// One action; `label` is already escaped.
+fn author_disabled(comp: &ComponentNode, item: Option<&ComponentItemNode>) -> bool {
+    comp.props.get("disabled").is_some_and(|v| truthy(v))
+        || item
+            .and_then(|i| i.config.get("disabled"))
+            .is_some_and(|v| truthy(v))
+}
+
+fn is_copy_like(text: &str, icon: Option<&str>, copy: Option<&str>) -> bool {
+    text.eq_ignore_ascii_case("copy")
+        || icon.is_some_and(|i| i.eq_ignore_ascii_case("copy"))
+        || copy.is_some_and(|c| !c.is_empty())
+}
+
+fn copy_payload_for(
+    text: &str,
+    icon: Option<&str>,
+    copy: Option<&str>,
+    value: Option<&str>,
+) -> Option<String> {
+    if !is_copy_like(text, icon, copy) {
+        return None;
+    }
+    Some(esc(copy
+        .filter(|c| !c.is_empty())
+        .or_else(|| value.filter(|v| !v.is_empty()))
+        .unwrap_or(text)))
+}
+
+/// One action; `label` is already escaped. `copy` is already escaped when set.
 fn action(
     comp: &ComponentNode,
     label: &str,
@@ -83,6 +130,8 @@ fn action(
     variant: &str,
     size: &str,
     href: Option<&str>,
+    copy: Option<String>,
+    disabled: bool,
 ) -> String {
     let glyph = icon.and_then(crate::cronus_ui_icons::svg);
     let inner = glyph.unwrap_or_else(|| label.to_string());
@@ -97,14 +146,32 @@ fn action(
         )
     });
     let (invoker, popover) = hint.unwrap_or_default();
+    let disabled_attr = if disabled {
+        " disabled data-disabled"
+    } else {
+        ""
+    };
     match href {
         Some(href) => format!(
             "<a data-slot=\"action\" data-variant=\"{variant}\"{class} href=\"{}\" aria-label=\"{label}\"{invoker}>{inner}</a>{popover}",
             safe_url(href)
         ),
-        None => format!(
-            "<button type=\"button\" data-slot=\"action\" data-variant=\"{variant}\"{class} aria-label=\"{label}\"{invoker} disabled>{inner}</button>{popover}"
-        ),
+        None => {
+            if let Some(payload) = copy {
+                let size_attr = if size == "icon" {
+                    String::new()
+                } else {
+                    format!(" data-size=\"{size}\"")
+                };
+                format!(
+                    "<button type=\"button\" data-slot=\"copy-button\" data-variant=\"{variant}\"{size_attr} aria-label=\"{label}\" data-copy=\"{payload}\"{invoker}{disabled_attr}>{inner}<span aria-live=\"polite\"></span></button>{popover}"
+                )
+            } else {
+                format!(
+                    "<button type=\"button\" data-slot=\"action\" data-variant=\"{variant}\"{class} aria-label=\"{label}\"{invoker}{disabled_attr}>{inner}</button>{popover}"
+                )
+            }
+        }
     }
 }
 
@@ -147,14 +214,16 @@ mod tests {
     fn docs_example_is_three_ghost_icon_buttons_with_hints() {
         reset_instance_ids();
         let html = render(&docs());
-        assert!(html.starts_with("<div data-slot=\"actions\"><button type=\"button\" data-slot=\"action\" data-variant=\"ghost\" class=\"s-icon-sm\" aria-label=\"Copy\" interestfor=\"cui-actions-action-tip\" aria-describedby=\"cui-actions-action-tip\" disabled><svg"));
+        assert!(html.starts_with("<div data-slot=\"actions\"><button type=\"button\" data-slot=\"copy-button\" data-variant=\"ghost\" data-size=\"icon-sm\" aria-label=\"Copy\" data-copy=\"Copy\" interestfor=\"cui-actions-action-tip\" aria-describedby=\"cui-actions-action-tip\"><svg"));
         assert!(html.contains("data-icon=\"copy\""));
         assert!(html.contains("data-icon=\"refresh-cw\""));
         assert!(html.contains("data-icon=\"share\""));
-        assert_eq!(html.matches("data-slot=\"action\"").count(), 3);
+        assert_eq!(html.matches("data-slot=\"copy-button\"").count(), 1);
+        assert_eq!(html.matches("data-slot=\"action\"").count(), 2);
         assert!(html.contains("<div id=\"cui-actions-action-tip\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">Copy</div>"));
         assert!(html.contains("id=\"cui-actions-action-tip-3\" popover=\"hint\" data-slot=\"tooltip-content\" role=\"tooltip\">Share</div></div>"));
         assert!(!html.contains("data-slot=\"button\""));
+        assert!(!html.contains(" disabled"));
         zero_js(&html);
     }
 
@@ -171,10 +240,30 @@ mod tests {
         c.items.push(docs);
         let html = render(&c);
         assert!(html.contains("role=\"tooltip\">Copy to clipboard</div>"));
-        assert!(html.contains("aria-label=\"Retry\" disabled>"));
+        assert!(html.contains("data-slot=\"copy-button\""));
+        assert!(html.contains("data-copy=\"Copy\""));
+        assert!(html.contains("aria-label=\"Retry\">"));
+        assert!(!html.contains(" disabled"));
         assert!(!html.contains("role=\"tooltip\">Retry</div>"));
         assert!(html.contains("<a data-slot=\"action\" data-variant=\"outline\" class=\"s-sm\" href=\"#\" aria-label=\"Docs\" interestfor="));
         assert!(html.contains(">Docs</a>"));
+        zero_js(&html);
+    }
+
+    #[test]
+    fn copy_payload_and_author_disabled() {
+        reset_instance_ids();
+        let mut c = stub("actions", "Actions");
+        c.items
+            .push(act("Copy", "copy", &[("copy", "hello <world>")]));
+        c.items.push(act(
+            "Retry",
+            "refresh-cw",
+            &[("disabled", "true"), ("tooltip", "false")],
+        ));
+        let html = render(&c);
+        assert!(html.contains("data-copy=\"hello &lt;world&gt;\""));
+        assert!(html.contains("aria-label=\"Retry\" disabled data-disabled>"));
         zero_js(&html);
     }
 

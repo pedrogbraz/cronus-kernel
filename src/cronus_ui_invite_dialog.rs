@@ -9,18 +9,19 @@
 //! `select-trigger`), `dialog-footer` (outline Cancel + primary
 //! `invite-dialog-send`) and the absolute `dialog-close` icon button.
 //!
-//! JS-only (Wave 1t rule: same native element, `disabled`, idle look): Send,
-//! Cancel and Close (sending/closing need JS) and the Radix role select — its
-//! trigger is a disabled `button` showing the default role, and a hidden native
-//! `select` carries that value. The email input stays editable. Not reproduced either: focus
-//! trap, async `onInvite` spinner/error, invite-link success view.
+//! Role is the Select pattern: `select-trigger` (`popovertarget`) opens a
+//! native `popover="auto"` `select-content` of radios (`name="role"`), so the
+//! choice submits with the form. Send is `type="submit"` (the fields live in
+//! a `<form>`). Cancel and Close stay inert in the open specimen (closing
+//! the overlay needs JS) and hide the native dialog in closed mode. Not
+//! reproduced: focus trap, async `onInvite` spinner/error, invite-link
+//! success view.
 //!
 //! Closed mode (`trigger:"…"` prop, or `open:false` / `defaultOpen:false`; see
 //! `cronus_ui_kit::overlay_trigger`): an outline `button` trigger opens the panel
-//! as a native `popover="auto"` (scrim on `::backdrop`, no overlay div); Cancel
-//! and Close hide it (`popovertargetaction="hide"`). Send and the role select
-//! still need JS and stay `disabled`. Gaps: a popover is not modal (no focus
-//! trap, background not inert, `aria-expanded` not reflected).
+//! as a native modal `<dialog>` (`command="show-modal"`); Cancel and Close
+//! hide it (`command="close"`). Gaps: `aria-expanded` on the role trigger is
+//! not reflected.
 
 use crate::cronus_ui_dialog::trigger_button;
 use crate::cronus_ui_kit::{
@@ -60,13 +61,20 @@ pub fn render(comp: &ComponentNode) -> String {
     let cancel = label(comp, "cancel", "Cancel");
     let close = label(comp, "close", "Close");
     let role_text = ROLES[0].1;
-    // Radix Select's visually hidden native <select> (form value; aria-hidden, tabindex -1).
-    let options: String = ROLES
+    let role_labels: String = ROLES
+        .iter()
+        .enumerate()
+        .map(|(i, (_, text))| format!(" data-o{}=\"{text}\"", i + 1))
+        .collect();
+    let role_items: String = ROLES
         .iter()
         .enumerate()
         .map(|(i, (value, text))| {
-            let selected = if i == 0 { " selected" } else { "" };
-            format!("<option value=\"{value}\"{selected}>{text}</option>")
+            let checked = if i == 0 { " checked" } else { "" };
+            format!(
+                "<label data-slot=\"select-item\" data-option=\"{}\"><input type=\"radio\" name=\"role\" value=\"{value}\"{checked}><span>{text}</span></label>",
+                i + 1
+            )
         })
         .collect();
 
@@ -74,17 +82,18 @@ pub fn render(comp: &ComponentNode) -> String {
     let title_id = widget_id(comp, "invite-dialog-title");
     let email_id = widget_id(comp, "invite-dialog-email");
     let role_id = widget_id(comp, "invite-dialog-role");
+    let role_pop = widget_id(comp, "invite-dialog-role-list");
 
     let trigger = overlay_trigger(comp, "Open");
     let pop_id = widget_id(comp, "invite-dialog");
-    // Cancel / Close: inert in the open specimen, native popover hide when closed.
+    // Cancel / Close: inert in the open specimen, native dialog close when closed.
     let dismiss = if trigger.is_some() {
         modal_close_attrs(&pop_id)
     } else {
         " disabled".to_string()
     };
     let body = format!(
-        "<div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2><p data-slot=\"dialog-description\">{description}</p></div><form id=\"{form}\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{email_id}\">{email}</label><input data-slot=\"input\" id=\"{email_id}\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"{placeholder}\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{role_id}\">{role}</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{role_id}\" role=\"combobox\" aria-expanded=\"false\" disabled><span>{role_text}</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\">{options}</select></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\"{dismiss}>{cancel}</button><button type=\"button\" data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>{send}</button></div></form><button type=\"button\" data-slot=\"dialog-close\"{dismiss}>{CROSS}<span>{close}</span></button>"
+        "<div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{title_id}\">{title}</h2><p data-slot=\"dialog-description\">{description}</p></div><form id=\"{form}\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{email_id}\">{email}</label><input data-slot=\"input\" id=\"{email_id}\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"{placeholder}\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{role_id}\">{role}</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{role_id}\" role=\"combobox\" aria-expanded=\"false\" aria-autocomplete=\"none\" data-state=\"closed\" popovertarget=\"{role_pop}\" aria-controls=\"{role_pop}\"><span{role_labels}>{role_text}</span>{CHEVRON}</button><div id=\"{role_pop}\" popover=\"auto\" data-slot=\"select-content\" role=\"radiogroup\" aria-label=\"{role}\" anchor=\"{role_id}\">{role_items}</div></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\"{dismiss}>{cancel}</button><button type=\"submit\" data-slot=\"invite-dialog-send\" data-variant=\"primary\">{send}</button></div></form><button type=\"button\" data-slot=\"dialog-close\"{dismiss}>{CROSS}<span>{close}</span></button>"
     );
     match trigger {
         None => format!(
@@ -119,14 +128,18 @@ mod tests {
 
     fn reject_js(html: &str) {
         assert!(!html.contains("showModal("));
-        assert!(!html.contains("-control"));
+        assert!(!html.contains("v-control"));
         assert!(!html.contains("onclick="));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("popovertarget"));
+        assert!(!html.contains("popovertargetaction"));
         assert!(!html.contains("<label data-slot=\"invite-dialog\""));
+        assert!(!html.contains("<select"));
+        assert!(
+            !html.contains("data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled")
+        );
     }
 
     #[test]
@@ -137,7 +150,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\" role=\"dialog\" aria-labelledby=\"{id}title\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{id}title\">Invite member</h2><p data-slot=\"dialog-description\">Send an invitation to join this workspace.</p></div><form id=\"{id}form\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}email\">Email</label><input data-slot=\"input\" id=\"{id}email\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"name@example.com\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}role\">Role</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{id}role\" role=\"combobox\" aria-expanded=\"false\" disabled><span>Member</span>{CHEVRON}</button><select aria-hidden=\"true\" tabindex=\"-1\" name=\"role\"><option value=\"member\" selected>Member</option><option value=\"admin\">Admin</option></select></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" disabled>Cancel</button><button type=\"button\" data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>Send invite</button></div></form><button type=\"button\" data-slot=\"dialog-close\" disabled>{CROSS}<span>Close</span></button></div>"
+                "<div data-slot=\"dialog-overlay\" data-state=\"open\" aria-hidden=\"true\"></div><div data-slot=\"invite-dialog\" data-state=\"open\" role=\"dialog\" aria-labelledby=\"{id}title\"><div data-slot=\"dialog-header\"><h2 data-slot=\"dialog-title\" id=\"{id}title\">Invite member</h2><p data-slot=\"dialog-description\">Send an invitation to join this workspace.</p></div><form id=\"{id}form\"><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}email\">Email</label><input data-slot=\"input\" id=\"{id}email\" type=\"email\" name=\"email\" autocomplete=\"email\" required placeholder=\"name@example.com\"></div><div data-slot=\"field\"><label data-slot=\"field-label\" for=\"{id}role\">Role</label><button type=\"button\" data-slot=\"select-trigger\" id=\"{id}role\" role=\"combobox\" aria-expanded=\"false\" aria-autocomplete=\"none\" data-state=\"closed\" popovertarget=\"{id}role-list\" aria-controls=\"{id}role-list\"><span data-o1=\"Member\" data-o2=\"Admin\">Member</span>{CHEVRON}</button><div id=\"{id}role-list\" popover=\"auto\" data-slot=\"select-content\" role=\"radiogroup\" aria-label=\"Role\" anchor=\"{id}role\"><label data-slot=\"select-item\" data-option=\"1\"><input type=\"radio\" name=\"role\" value=\"member\" checked><span>Member</span></label><label data-slot=\"select-item\" data-option=\"2\"><input type=\"radio\" name=\"role\" value=\"admin\"><span>Admin</span></label></div></div><div data-slot=\"dialog-footer\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" disabled>Cancel</button><button type=\"submit\" data-slot=\"invite-dialog-send\" data-variant=\"primary\">Send invite</button></div></form><button type=\"button\" data-slot=\"dialog-close\" disabled>{CROSS}<span>Close</span></button></div>"
             )
         );
         assert!(!html.contains("data-slot=\"invite-dialog-title\""));
@@ -155,9 +168,8 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("<p data-slot=\"dialog-description\">Add a teammate.</p>"));
         assert!(html.contains("placeholder=\"teammate@company.com\""));
-        assert!(html.contains(
-            "data-slot=\"invite-dialog-send\" data-variant=\"primary\" disabled>Invite</button>"
-        ));
+        assert!(html
+            .contains("data-slot=\"invite-dialog-send\" data-variant=\"primary\">Invite</button>"));
         assert!(html.contains("data-variant=\"outline\" disabled>Dismiss</button>"));
         let mut c = stub("invite-dialog", "Invite member");
         c.items[0]
@@ -179,14 +191,18 @@ mod tests {
         )));
         assert!(html.contains("closedby=\"any\""));
         assert!(!html.contains("dialog-overlay"));
-        assert!(!html.contains("popovertarget"));
+        assert!(html.contains(&format!(
+            "popovertarget=\"{}\"",
+            widget_id(&c, "invite-dialog-role-list")
+        )));
+        assert!(html.contains("command=\"show-modal\""));
         assert!(html.contains(&format!(
             "data-variant=\"outline\" commandfor=\"{pid}\" command=\"close\">Cancel</button>"
         )));
         assert!(html.contains(&format!(
             "<button type=\"button\" data-slot=\"dialog-close\" commandfor=\"{pid}\" command=\"close\">{CROSS}<span>Close</span></button></dialog>"
         )));
-        assert!(html.contains("data-variant=\"primary\" disabled>Send invite</button>"));
+        assert!(html.contains("type=\"submit\" data-slot=\"invite-dialog-send\" data-variant=\"primary\">Send invite</button>"));
         reject_js(&html);
     }
 

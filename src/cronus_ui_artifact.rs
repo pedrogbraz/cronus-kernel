@@ -10,8 +10,9 @@
 //! `close:true` (`close-label:"…"` renames it). Then
 //! `<div data-slot="artifact-content">` with one `<p>` per `text` line, or a
 //! single `<pre>` of the lines joined by newlines when `code:true` (the docs'
-//! generated-file canvas). Action buttons need `onClick`, so they are the same
-//! native buttons `disabled` at React's idle look.
+//! generated-file canvas). Copy-like actions emit `data-slot="copy-button"`
+//! and `data-copy` of the canvas body; download/close stay native buttons.
+//! `disabled` only when the author set it.
 
 use crate::cronus_ui_kit::{attr_nonempty, esc, flag, instance_id, truthy};
 use crate::parser::{ComponentItemNode, ComponentNode};
@@ -27,18 +28,25 @@ pub fn render(comp: &ComponentNode) -> String {
         ),
         None => format!("<p data-slot=\"artifact-title\">{title}</p>"),
     };
+    let lines = body_lines(comp);
+    let copy_body = lines.join("\n");
     let actions: String = comp
         .items
         .iter()
         .filter(|i| i.item_type == "action" && !i.text.is_empty())
-        .map(|i| action(comp, i))
+        .map(|i| action(comp, i, &copy_body))
         .collect();
     let close = if flag(comp, "close") {
         let label = attr_nonempty(comp, "close-label")
             .map(esc)
             .unwrap_or_else(|| "Close".into());
+        let disabled = if author_disabled(comp, None) {
+            " disabled data-disabled"
+        } else {
+            ""
+        };
         format!(
-            "<button type=\"button\" data-slot=\"artifact-close\" data-variant=\"ghost\" aria-label=\"{label}\" disabled>{X}</button>"
+            "<button type=\"button\" data-slot=\"artifact-close\" data-variant=\"ghost\" aria-label=\"{label}\"{disabled}>{X}</button>"
         )
     } else {
         String::new()
@@ -48,7 +56,6 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         format!("<div data-slot=\"artifact-actions\">{actions}{close}</div>")
     };
-    let lines = body_lines(comp);
     let content = if flag(comp, "code") {
         format!("<pre>{}</pre>", lines.join("\n"))
     } else {
@@ -89,7 +96,23 @@ fn body_lines(comp: &ComponentNode) -> Vec<String> {
     lines
 }
 
-fn action(comp: &ComponentNode, item: &ComponentItemNode) -> String {
+fn author_disabled(comp: &ComponentNode, item: Option<&ComponentItemNode>) -> bool {
+    comp.props.get("disabled").is_some_and(|v| truthy(v))
+        || item
+            .and_then(|i| i.config.get("disabled"))
+            .is_some_and(|v| truthy(v))
+}
+
+fn is_copy_like(item: &ComponentItemNode) -> bool {
+    item.text.eq_ignore_ascii_case("copy")
+        || item
+            .config
+            .get("icon")
+            .is_some_and(|i| i.eq_ignore_ascii_case("copy"))
+        || item.config.get("copy").is_some_and(|c| !c.is_empty())
+}
+
+fn action(comp: &ComponentNode, item: &ComponentItemNode, body: &str) -> String {
     let label = esc(&item.text);
     let glyph = item
         .config
@@ -113,9 +136,32 @@ fn action(comp: &ComponentNode, item: &ComponentItemNode) -> String {
             )
         })
         .unwrap_or_default();
-    format!(
-        "<button type=\"button\" data-slot=\"artifact-action\" data-variant=\"ghost\" aria-label=\"{label}\"{invoker} disabled>{glyph}</button>{popover}"
-    )
+    let disabled_attr = if author_disabled(comp, Some(item)) {
+        " disabled data-disabled"
+    } else {
+        ""
+    };
+    if is_copy_like(item) {
+        let payload = item
+            .config
+            .get("copy")
+            .filter(|c| !c.is_empty())
+            .map(|c| esc(c))
+            .unwrap_or_else(|| {
+                if body.is_empty() {
+                    label.clone()
+                } else {
+                    body.to_string()
+                }
+            });
+        format!(
+            "<button type=\"button\" data-slot=\"copy-button\" data-variant=\"ghost\" data-size=\"icon-sm\" aria-label=\"{label}\" data-copy=\"{payload}\"{invoker}{disabled_attr}>{glyph}<span aria-live=\"polite\"></span></button>{popover}"
+        )
+    } else {
+        format!(
+            "<button type=\"button\" data-slot=\"artifact-action\" data-variant=\"ghost\" aria-label=\"{label}\"{invoker}{disabled_attr}>{glyph}</button>{popover}"
+        )
+    }
 }
 
 #[cfg(test)]
@@ -177,12 +223,30 @@ mod tests {
             .push(line("action", "Download", &[("icon", "download")]));
         c.items.push(line("text", "First <b>paragraph</b>", &[]));
         let html = render(&c);
-        assert!(html.contains("<div data-slot=\"artifact-header\"><div><p data-slot=\"artifact-title\">Report</p><p data-slot=\"artifact-description\">Generated &quot;today&quot;</p></div><div data-slot=\"artifact-actions\"><button type=\"button\" data-slot=\"artifact-action\" data-variant=\"ghost\" aria-label=\"Copy\" interestfor=\"cui-artifact-artifact-tip\" aria-describedby=\"cui-artifact-artifact-tip\" disabled><svg"));
+        assert!(html.contains("<div data-slot=\"artifact-header\"><div><p data-slot=\"artifact-title\">Report</p><p data-slot=\"artifact-description\">Generated &quot;today&quot;</p></div><div data-slot=\"artifact-actions\"><button type=\"button\" data-slot=\"copy-button\" data-variant=\"ghost\" data-size=\"icon-sm\" aria-label=\"Copy\" data-copy=\"First &lt;b&gt;paragraph&lt;/b&gt;\" interestfor=\"cui-artifact-artifact-tip\" aria-describedby=\"cui-artifact-artifact-tip\"><svg"));
         assert!(html.contains("role=\"tooltip\">Copy file</div>"));
-        assert!(html.contains("role=\"tooltip\">Download</div><button type=\"button\" data-slot=\"artifact-close\" data-variant=\"ghost\" aria-label=\"Close\" disabled><svg"));
+        assert!(html.contains("role=\"tooltip\">Download</div><button type=\"button\" data-slot=\"artifact-close\" data-variant=\"ghost\" aria-label=\"Close\"><svg"));
         assert!(html.ends_with("<div data-slot=\"artifact-content\"><p>First &lt;b&gt;paragraph&lt;/b&gt;</p></div></div>"));
+        assert!(!html.contains(" disabled"));
         assert!(!html.contains("style="));
         assert!(!html.contains("<script"));
+    }
+
+    #[test]
+    fn author_disabled_keeps_copy_download_and_close_inert() {
+        reset_instance_ids();
+        let mut c = stub("artifact", "Report");
+        c.items[0].item_type = "title".into();
+        c.props.insert("close".into(), "true".into());
+        c.props.insert("disabled".into(), "true".into());
+        c.items.push(line("action", "Copy", &[("icon", "copy")]));
+        c.items
+            .push(line("action", "Download", &[("icon", "download")]));
+        c.items.push(line("text", "body", &[]));
+        let html = render(&c);
+        assert_eq!(html.matches(" disabled data-disabled").count(), 3);
+        assert!(html.contains("data-slot=\"copy-button\""));
+        assert!(html.contains("data-copy=\"body\""));
     }
 
     #[test]

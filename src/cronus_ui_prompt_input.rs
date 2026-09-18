@@ -11,15 +11,15 @@
 //! textarea. Tool buttons (`action "Attach" icon:paperclip`) are React's
 //! `PromptInputButton`: icon-only `icon-sm` (`class="s-icon-sm"`, the text is
 //! the accessible name) or, with `icon-only:false` / no icon, icon + text
-//! `sm` (`class="s-sm"`). Their handlers need JS, so they are `disabled` at
-//! React's idle look. `status:` follows React: `submitted` (spinning loader)
+//! `sm` (`class="s-sm"`). Attach (`paperclip` / "Attach") is a `<label>`
+//! wrapping a hidden `<input type="file">` so picking a file works natively;
+//! voice and tools stay enabled `type="button"` (click is a no-op without
+//! page runtime). `status:` follows React: `submitted` (spinning loader)
 //! / `streaming` (stop square) make the button a `type="button"` (stop needs
-//! JS, so it is `disabled`), `error` shows the X icon. React's hidden
-//! `<input type="file">` (attachments) sits outside the form and only works
-//! with JS, so it is not rendered.
+//! JS, so it is `disabled`), `error` shows the X icon.
 
 use crate::cronus_ui_kit::{attr, attr_nonempty, esc, item, item_icon, safe_url, truthy};
-use crate::parser::ComponentNode;
+use crate::parser::{ComponentItemNode, ComponentNode};
 
 const PLACEHOLDER: &str = "What would you like to know?";
 const SVG_OPEN: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"";
@@ -50,6 +50,18 @@ pub fn render(comp: &ComponentNode) -> String {
     )
 }
 
+fn is_attach(item: &ComponentItemNode) -> bool {
+    item.text.eq_ignore_ascii_case("attach")
+        || item
+            .config
+            .get("icon")
+            .is_some_and(|s| s.eq_ignore_ascii_case("paperclip"))
+        || item
+            .config
+            .get("type")
+            .is_some_and(|s| s.eq_ignore_ascii_case("file"))
+}
+
 /// `PromptInputButton`s from `action` items.
 fn tools(comp: &ComponentNode) -> String {
     comp.items
@@ -60,13 +72,23 @@ fn tools(comp: &ComponentNode) -> String {
             let icon_only = !icon.is_empty()
                 && i.config.get("icon-only").is_none_or(|v| truthy(v));
             let label = esc(&i.text);
-            if icon_only {
+            if is_attach(i) {
+                if icon_only {
+                    format!(
+                        "<label data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-icon-sm\" aria-label=\"{label}\"><input type=\"file\" hidden>{icon}</label>"
+                    )
+                } else {
+                    format!(
+                        "<label data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-sm\"><input type=\"file\" hidden>{icon}{label}</label>"
+                    )
+                }
+            } else if icon_only {
                 format!(
-                    "<button type=\"button\" data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-icon-sm\" aria-label=\"{label}\" disabled>{icon}</button>"
+                    "<button type=\"button\" data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-icon-sm\" aria-label=\"{label}\">{icon}</button>"
                 )
             } else {
                 format!(
-                    "<button type=\"button\" data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-sm\" disabled>{icon}{label}</button>"
+                    "<button type=\"button\" data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-sm\">{icon}{label}</button>"
                 )
             }
         })
@@ -174,7 +196,7 @@ mod tests {
     }
 
     /// Toolbar: `action` items are ghost `PromptInputButton`s (icon-only
-    /// `icon-sm`, or icon + text `sm`), JS-only so disabled.
+    /// `icon-sm`, or icon + text `sm`). Attach is a file-picker label.
     #[test]
     fn action_items_are_toolbar_buttons() {
         let mut c = stub("prompt-input", "Ask");
@@ -186,13 +208,16 @@ mod tests {
         ));
         c.items.push(action("Tools", &[]));
         let html = render(&c);
-        assert!(html.contains("<div data-slot=\"prompt-input-tools\"><button type=\"button\" data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-icon-sm\" aria-label=\"Attach\" disabled><svg"));
+        assert!(html.contains("<div data-slot=\"prompt-input-tools\"><label data-slot=\"prompt-input-button\" data-variant=\"ghost\" class=\"s-icon-sm\" aria-label=\"Attach\"><input type=\"file\" hidden><svg"));
         assert!(html.contains("data-icon=\"paperclip\""));
-        assert!(html.contains("aria-label=\"Voice &lt;x&gt;\" disabled><svg"));
-        assert!(html.contains("class=\"s-sm\" disabled><svg xmlns"));
+        assert!(html.contains("aria-label=\"Voice &lt;x&gt;\"><svg"));
+        assert!(html.contains("class=\"s-sm\"><svg xmlns"));
         assert!(html.contains("</svg>Model</button>"));
-        assert!(html.contains("class=\"s-sm\" disabled>Tools</button>"));
+        assert!(html.contains("class=\"s-sm\">Tools</button>"));
         assert_eq!(html.matches("data-slot=\"prompt-input-button\"").count(), 4);
+        assert_eq!(html.matches("type=\"file\"").count(), 1);
+        assert!(!html.contains("prompt-input-button\" data-variant=\"ghost\" class=\"s-icon-sm\" aria-label=\"Attach\" disabled"));
+        assert!(!html.contains("aria-label=\"Voice &lt;x&gt;\" disabled"));
     }
 
     #[test]

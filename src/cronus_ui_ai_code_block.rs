@@ -1,7 +1,7 @@
 //! Dedicated AiCodeBlock renderer (AI suite). DOM matches React `AiCodeBlock`
 //! as the docs compose it: `<div data-slot="ai-code-block">` >
 //! `<div data-slot="ai-code-block-header">` (`<span>` filename +
-//! `<button data-slot="ai-code-block-copy-button" data-variant="ghost" aria-label="Copy">`)
+//! `<button data-slot="copy-button" data-variant="ghost" aria-label="Copy">`)
 //! > `<div data-slot="ai-code-block-body">` > `<div data-slot="ai-code-block-item">`
 //! > `<pre data-slot="ai-code-block-content" data-language><code>`.
 //!
@@ -10,9 +10,10 @@
 //! docs data). `value:"main.ts"` picks the active file (React `defaultValue`),
 //! else the first; like React only the active item is rendered.
 //! `line-numbers:true` stamps `data-line-numbers` on the item. `copy:"…"` /
-//! `select-file:"…"` rename the labels. The copy control is a clipboard
-//! button (JS-only), so it is the same native button `disabled` at React's
-//! idle look.
+//! `select-file:"…"` rename the labels. The header copy control is React's
+//! CopyButton slot (`data-slot="copy-button"` + `data-copy` of the active
+//! file) so page runtime can write it to the clipboard; `disabled` only when
+//! the author set it.
 
 use crate::cronus_ui_kit::{attr_nonempty, esc, flag};
 use crate::parser::ComponentNode;
@@ -86,8 +87,13 @@ pub fn render(comp: &ComponentNode) -> String {
         ""
     };
     let code: String = file.lines.iter().map(|l| format!("{}\n", esc(l))).collect();
+    let disabled = if flag(comp, "disabled") {
+        " disabled data-disabled"
+    } else {
+        ""
+    };
     format!(
-        "<div data-slot=\"ai-code-block\"><div data-slot=\"ai-code-block-header\"><span>{}</span><button type=\"button\" data-slot=\"ai-code-block-copy-button\" data-variant=\"ghost\" aria-label=\"{copy}\" disabled>{COPY}</button></div><div data-slot=\"ai-code-block-body\"><div data-slot=\"ai-code-block-item\"{line_numbers}><pre data-slot=\"ai-code-block-content\"{language}><code>{code}</code></pre></div></div></div>",
+        "<div data-slot=\"ai-code-block\"><div data-slot=\"ai-code-block-header\"><span>{}</span><button data-slot=\"copy-button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"{copy}\" data-copy=\"{code}\"{disabled}>{COPY}<span aria-live=\"polite\"></span></button></div><div data-slot=\"ai-code-block-body\"><div data-slot=\"ai-code-block-item\"{line_numbers}><pre data-slot=\"ai-code-block-content\"{language}><code>{code}</code></pre></div></div></div>",
         esc(&file.name)
     )
 }
@@ -126,8 +132,18 @@ mod tests {
     fn docs_example_is_header_copy_and_one_pre() {
         assert_eq!(
             render(&docs()),
-            format!("<div data-slot=\"ai-code-block\"><div data-slot=\"ai-code-block-header\"><span>main.ts</span><button type=\"button\" data-slot=\"ai-code-block-copy-button\" data-variant=\"ghost\" aria-label=\"Copy\" disabled>{COPY}</button></div><div data-slot=\"ai-code-block-body\"><div data-slot=\"ai-code-block-item\"><pre data-slot=\"ai-code-block-content\" data-language=\"ts\"><code>export const n = 1\n</code></pre></div></div></div>")
+            format!("<div data-slot=\"ai-code-block\"><div data-slot=\"ai-code-block-header\"><span>main.ts</span><button data-slot=\"copy-button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Copy\" data-copy=\"export const n = 1\n\">{COPY}<span aria-live=\"polite\"></span></button></div><div data-slot=\"ai-code-block-body\"><div data-slot=\"ai-code-block-item\"><pre data-slot=\"ai-code-block-content\" data-language=\"ts\"><code>export const n = 1\n</code></pre></div></div></div>")
         );
+        assert!(!render(&docs()).contains(" disabled"));
+    }
+
+    #[test]
+    fn author_disabled_keeps_the_copy_control_inert() {
+        let mut c = docs();
+        c.props.insert("disabled".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains(" disabled data-disabled>"));
+        assert!(html.contains("data-slot=\"copy-button\""));
     }
 
     #[test]
@@ -143,6 +159,9 @@ mod tests {
         assert!(html.contains("<span>b.html</span>"));
         assert!(!html.contains("main.ts"));
         assert!(html.contains("<div data-slot=\"ai-code-block-item\" data-line-numbers=\"true\"><pre data-slot=\"ai-code-block-content\" data-language=\"html\"><code>&lt;b class=&quot;x&quot;&gt;&amp;&lt;/b&gt;\nsecond\n</code></pre>"));
+        assert!(
+            html.contains("data-copy=\"&lt;b class=&quot;x&quot;&gt;&amp;&lt;/b&gt;\nsecond\n\"")
+        );
         assert!(!html.contains("style="));
         assert!(!html.contains("<script"));
     }

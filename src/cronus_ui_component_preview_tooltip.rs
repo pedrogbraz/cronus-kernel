@@ -13,10 +13,11 @@
 //! bar (`[data-slot="progress"]`, the docs' `h-2` primary bar). Without any
 //! preview the panel shows `Preview not found` like React's fallback.
 //!
-//! Zero JS: `:hover` / `:focus-within` on the wrapper reveals the content with
-//! React's `cronus-pop-in` entrance; `side:right|left|top|bottom` picks the
-//! placement (`sideOffset` 5). `width` / `height` / `scale` props are not
-//! read — the CSS carries React's defaults (300×200, 0.8).
+//! Zero JS: the trigger's `interestfor` opens a `popover="hint"` card (live.js
+//! `showPopover` after 200ms). CSS `:popover-open` runs React's `cronus-pop-in`
+//! entrance; `side:right|left|top|bottom` picks the placement (`sideOffset` 5).
+//! `width` / `height` / `scale` props are not read — the CSS carries React's
+//! defaults (300×200, 0.8).
 //!
 //! Inputs: `label "Hover me: Goal Card"` (trigger), `name:"goal-card"`
 //! (accessible name), `side:`, `title`, `text`, `progress:`.
@@ -55,8 +56,9 @@ pub fn render(comp: &ComponentNode) -> String {
         }
         format!("<div><div><div class=\"preview-card\">{card}</div></div></div>")
     };
+    let trigger_id = format!("{content_id}-trigger");
     format!(
-        "<span data-slot=\"component-preview-tooltip\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-state=\"closed\" aria-describedby=\"{content_id}\">{trigger}</button><div id=\"{content_id}\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"{side}\" aria-label=\"{name}\"><div>{panel}</div></div></span>"
+        "<span data-slot=\"component-preview-tooltip\"><button type=\"button\" id=\"{trigger_id}\" data-slot=\"button\" data-variant=\"outline\" data-state=\"closed\" interestfor=\"{content_id}\" aria-describedby=\"{content_id}\">{trigger}</button><div id=\"{content_id}\" popover=\"hint\" anchor=\"{trigger_id}\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"{side}\" aria-label=\"{name}\"><div>{panel}</div></div></span>"
     )
 }
 
@@ -83,9 +85,7 @@ mod tests {
     }
 
     fn reject_js(html: &str) {
-        for bad in [
-            "<script", "style=", "onclick", "onmouse", "<canvas", "popover",
-        ] {
+        for bad in ["<script", "style=", "onclick", "onmouse", "<canvas"] {
             assert!(!html.contains(bad), "{bad} in {html}");
         }
     }
@@ -97,7 +97,7 @@ mod tests {
         c.props.insert("progress".into(), "75".into());
         push(&mut c, "title", "Launch MVP");
         let html = render(&c);
-        assert!(html.starts_with("<span data-slot=\"component-preview-tooltip\"><button type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-state=\"closed\" aria-describedby=\"cui-component-preview-tooltip-component-preview-tooltip\">Hover me: Goal Card</button><div id=\"cui-component-preview-tooltip-component-preview-tooltip\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"right\" aria-label=\"Component preview: goal-card\"><div><div><div><div class=\"preview-card\"><p>Launch MVP</p><div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"75\""));
+        assert!(html.starts_with("<span data-slot=\"component-preview-tooltip\"><button type=\"button\" id=\"cui-component-preview-tooltip-component-preview-tooltip-trigger\" data-slot=\"button\" data-variant=\"outline\" data-state=\"closed\" interestfor=\"cui-component-preview-tooltip-component-preview-tooltip\" aria-describedby=\"cui-component-preview-tooltip-component-preview-tooltip\">Hover me: Goal Card</button><div id=\"cui-component-preview-tooltip-component-preview-tooltip\" popover=\"hint\" anchor=\"cui-component-preview-tooltip-component-preview-tooltip-trigger\" data-slot=\"tooltip-content\" role=\"tooltip\" data-side=\"right\" aria-label=\"Component preview: goal-card\"><div><div><div><div class=\"preview-card\"><p>Launch MVP</p><div data-slot=\"progress\" role=\"progressbar\" aria-valuenow=\"75\""));
         assert!(html.ends_with("</div></div></div></div></div></div></span>"));
         reject_js(&html);
     }
@@ -143,6 +143,7 @@ mod tests {
     fn chrome_is_token_only() {
         let css = include_str!("cronus_ui_css/component-preview-tooltip.css");
         assert!(css.contains("[data-slot=\"component-preview-tooltip\"]:is(:hover, :focus-within) > [data-slot=\"tooltip-content\"]"));
+        assert!(css.contains("[data-slot=\"component-preview-tooltip\"] > [data-slot=\"tooltip-content\"]:popover-open"));
         assert!(css.contains("min-width: 18.75rem; max-width: 18.75rem; height: 12.5rem;"));
         assert!(css.contains("transform: scale(0.8)"));
         assert!(css.contains("var(--cronus-surface-inset)"));
