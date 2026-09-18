@@ -33,6 +33,15 @@ impl Format {
         }
     }
 
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Number => "number",
+            Self::Currency => "currency",
+            Self::Percentage => "percentage",
+            Self::Decimal => "decimal",
+        }
+    }
+
     /// `(minimumFractionDigits, maximumFractionDigits)` before overrides.
     fn default_fraction(self) -> (usize, usize) {
         match self {
@@ -212,15 +221,29 @@ fn display(tokens: &[Token]) -> String {
 /// Strip glyphs, top to bottom (React `DIGIT_STRIP`).
 const STRIP: &str = "<span>9</span><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>0</span>";
 
+fn numeric_attr(n: f64) -> String {
+    if n.is_finite() {
+        format!("{n}")
+    } else {
+        "0".into()
+    }
+}
+
 pub fn render(comp: &ComponentNode) -> String {
     let value = attr_num::<f64>(comp, "value")
         .filter(|v| v.is_finite())
         .unwrap_or(0.0);
+    let prefix = attr(comp, "prefix").unwrap_or("");
+    let suffix = attr(comp, "suffix").unwrap_or("");
+    let format = Format::parse(attr(comp, "format").unwrap_or(""));
+    let locale_tag = attr(comp, "locale")
+        .filter(|s| !s.is_empty())
+        .unwrap_or("en-US");
     let opts = Options {
-        prefix: attr(comp, "prefix").unwrap_or(""),
-        suffix: attr(comp, "suffix").unwrap_or(""),
-        format: Format::parse(attr(comp, "format").unwrap_or("")),
-        locale: locale_of(attr(comp, "locale").unwrap_or("en-US")),
+        prefix,
+        suffix,
+        format,
+        locale: locale_of(locale_tag),
         min_fraction: attr_num(comp, "minimumFractionDigits"),
         max_fraction: attr_num(comp, "maximumFractionDigits"),
     };
@@ -236,24 +259,41 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(s @ ("3xl" | "4xl" | "5xl")) => format!(" class=\"t-{s}\""),
         _ => String::new(),
     };
+    let mut live = format!(
+        " data-value=\"{}\" data-format=\"{}\"",
+        numeric_attr(value),
+        format.as_str()
+    );
+    if !prefix.is_empty() {
+        live.push_str(&format!(" data-prefix=\"{}\"", esc(prefix)));
+    }
+    if !suffix.is_empty() {
+        live.push_str(&format!(" data-suffix=\"{}\"", esc(suffix)));
+    }
+    live.push_str(&format!(" data-locale=\"{}\"", esc(locale_tag)));
     let flow = format!(
-        "<span role=\"img\" aria-label=\"{}\" data-slot=\"number-flow\"{class}><span aria-hidden=\"true\" dir=\"ltr\">{glyphs}</span></span>",
+        "<span role=\"img\" aria-label=\"{}\" data-slot=\"number-flow\"{live}{class}><span aria-hidden=\"true\" dir=\"ltr\">{glyphs}</span></span>",
         esc(&display(&tokens))
     );
-    // Docs demos: the number over a button that changes the value — a JS
-    // control, rendered as the same native button `disabled`.
+    // Docs demos: the number over a button; page runtime rolls on
+    // `data-number-flow-action` (shuffle vs increment).
     match comp
         .items
         .iter()
         .find(|i| matches!(i.item_type.as_str(), "action" | "button") && !i.text.is_empty())
     {
         Some(action) => {
-            let mut action = action.clone();
-            action.config.insert("disabled".into(), "true".into());
-            format!(
-                "<div class=\"cui-number-flow-demo\">{flow}{}</div>",
-                crate::cronus_ui_glass_card::action_button(&action)
-            )
+            let kind = if action.text.to_ascii_lowercase().contains("shuffle") {
+                "shuffle"
+            } else {
+                "increment"
+            };
+            let btn = crate::cronus_ui_glass_card::action_button(action).replacen(
+                "<button ",
+                &format!("<button data-number-flow-action=\"{kind}\" "),
+                1,
+            );
+            format!("<div class=\"cui-number-flow-demo\">{flow}{btn}</div>")
         }
         None => flow,
     }
@@ -334,7 +374,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<span role=\"img\" aria-label=\"1,234\" data-slot=\"number-flow\"><span aria-hidden=\"true\" dir=\"ltr\">{}<span>,</span>{}{}{}</span></span>",
+                "<span role=\"img\" aria-label=\"1,234\" data-slot=\"number-flow\" data-value=\"1234\" data-format=\"number\" data-locale=\"en-US\"><span aria-hidden=\"true\" dir=\"ltr\">{}<span>,</span>{}{}{}</span></span>",
                 roller(1),
                 roller(2),
                 roller(3),
@@ -354,6 +394,10 @@ mod tests {
         c.props.insert("suffix".into(), " & up".into());
         let html = render(&c);
         assert!(html.contains("aria-label=\"&lt;$-7 &amp; up\""), "{html}");
+        assert!(
+            html.contains("data-value=\"-7\" data-format=\"number\" data-prefix=\"&lt;$\" data-suffix=\" &amp; up\" data-locale=\"en-US\""),
+            "{html}"
+        );
         assert!(
             html.contains("dir=\"ltr\"><span>&lt;$</span><span>-</span><span data-digit=\"7\">"),
             "{html}"
@@ -410,10 +454,16 @@ mod tests {
             crate::cli::stub_renderer_gate::dedicated_fn_name("number-flow"),
             Some("cronus_ui_number_flow::render")
         );
+        assert!(css.contains(
+            "[data-slot=\"number-flow\"] [data-digit] > span {\n  transition: margin-block-start 500ms var(--cronus-spring-soft, var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)));\n}"
+        ));
+        assert!(
+            css.contains("[data-slot=\"number-flow\"] [data-digit] > span { transition: none; }")
+        );
     }
 
-    /// Docs "Currency": `$19,348.43` at the 5xl display size over a disabled
-    /// outline "Update value" button (the increment needs JS).
+    /// Docs "Currency": `$19,348.43` at the 5xl display size over an outline
+    /// "Update value" button (`data-number-flow-action=increment`).
     #[test]
     fn docs_currency_demo_with_disabled_button() {
         let mut c = stub("number-flow", "Revenue");
@@ -432,9 +482,10 @@ mod tests {
                 .collect(),
         });
         let html = render(&c);
-        assert!(html.starts_with("<div class=\"cui-number-flow-demo\"><span role=\"img\" aria-label=\"$19,348.43\" data-slot=\"number-flow\" class=\"t-5xl\"><span aria-hidden=\"true\" dir=\"ltr\"><span>$</span><span data-digit=\"1\">"));
-        assert!(html.ends_with("</span></span><button type=\"button\" disabled data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\">Update value</button></div>"));
+        assert!(html.starts_with("<div class=\"cui-number-flow-demo\"><span role=\"img\" aria-label=\"$19,348.43\" data-slot=\"number-flow\" data-value=\"19348.43\" data-format=\"currency\" data-prefix=\"$\" data-locale=\"en-US\" class=\"t-5xl\"><span aria-hidden=\"true\" dir=\"ltr\"><span>$</span><span data-digit=\"1\">"));
+        assert!(html.ends_with("</span></span><button data-number-flow-action=\"increment\" type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\">Update value</button></div>"));
         assert!(!html.contains("style="));
+        assert!(!html.contains(" disabled"));
     }
 
     #[test]

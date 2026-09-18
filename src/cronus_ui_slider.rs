@@ -1,7 +1,9 @@
 //! Dedicated Slider renderer. DOM matches React/Radix Root (a **span**):
-//! `<span data-slot="slider" data-value>` + unslotted track/range spans + an
-//! unslotted positioner span holding the `role="slider"` thumb. Position comes
-//! from `data-value` rules in COMPONENT_CHROME (integer 0..100), never inline style.
+//! `<span data-slot="slider" data-value>` + a visually hidden native
+//! `<input type="range">` (first child; page runtime writes `data-value`) +
+//! unslotted track/range spans + an unslotted positioner span holding the
+//! `role="slider"` thumb. Position comes from `data-value` rules in
+//! COMPONENT_CHROME (integer 0..100), never inline style.
 //! Not the interact `<label data-slot="slider">…<input type="range" data-slot="slider-control">`.
 
 use crate::cronus_ui_kit::esc;
@@ -18,18 +20,27 @@ pub fn render(comp: &ComponentNode) -> String {
             fmt_num(v)
         )
     };
+    let range = |v: f64, extra: &str| {
+        format!(
+            "<input type=\"range\" min=\"0\" max=\"100\" value=\"{}\"{label} tabindex=\"0\"{extra}>",
+            v.round() as i64
+        )
+    };
     match lo {
         // Two thumbs (`value:"20,80"`): the range fills between them.
         Some(lo) => format!(
-            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{}\" data-start=\"{}\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span>{}{}</span>",
+            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{}\" data-start=\"{}\">{}{}<span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span>{}{}</span>",
             hi.round() as i64,
             lo.round() as i64,
+            range(lo, " data-start"),
+            range(hi, ""),
             thumb(lo),
             thumb(hi)
         ),
         None => format!(
-            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{}\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span>{}</span>",
+            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"{}\">{}<span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span>{}</span>",
             hi.round() as i64,
+            range(hi, ""),
             thumb(hi)
         ),
     }
@@ -151,12 +162,13 @@ mod tests {
 
     fn reject_interact(html: &str) {
         assert!(!html.contains("<label"));
-        assert!(!html.contains("<input"));
-        assert!(!html.contains("type=\"range\""));
         assert!(!html.contains("data-slot=\"slider-control\""));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("{ value }"));
+        assert!(!html.contains("style="));
+        assert!(!html.contains("<script"));
+        assert!(!html.contains("onclick="));
     }
 
     fn assert_slider(html: &str, now: &str, label: &str) {
@@ -172,6 +184,9 @@ mod tests {
         assert!(html.contains("aria-valuemin=\"0\""));
         assert!(html.contains("aria-valuemax=\"100\""));
         assert!(html.contains(&format!("aria-label=\"{label}\"")));
+        assert!(html.contains(&format!(
+            "<input type=\"range\" min=\"0\" max=\"100\" value=\"{now}\" aria-label=\"{label}\" tabindex=\"0\">"
+        )));
         reject_interact(html);
     }
 
@@ -181,7 +196,7 @@ mod tests {
         assert_slider(&html, "0", "Volume");
         assert_eq!(
             html,
-            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"0\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span><span><span role=\"slider\" aria-label=\"Volume\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-orientation=\"horizontal\" data-orientation=\"horizontal\" aria-valuenow=\"0\"></span></span></span>"
+            "<span dir=\"ltr\" data-orientation=\"horizontal\" aria-disabled=\"false\" data-slot=\"slider\" data-value=\"0\"><input type=\"range\" min=\"0\" max=\"100\" value=\"0\" aria-label=\"Volume\" tabindex=\"0\"><span data-orientation=\"horizontal\"><span data-orientation=\"horizontal\"></span></span><span><span role=\"slider\" aria-label=\"Volume\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-orientation=\"horizontal\" data-orientation=\"horizontal\" aria-valuenow=\"0\"></span></span></span>"
         );
     }
 
@@ -233,7 +248,26 @@ mod tests {
     fn skips_interact_label_range() {
         let html = render(&stub());
         assert!(!html.contains("<label"));
-        assert!(!html.contains("type=\"range\""));
+        assert!(!html.contains("data-slot=\"slider-control\""));
+        assert!(html.contains("<input type=\"range\""));
+    }
+
+    #[test]
+    fn two_thumb_emits_two_overlay_ranges() {
+        let mut c = stub();
+        c.props.insert("value".into(), "20,80".into());
+        let html = render(&c);
+        assert!(html.contains("data-value=\"80\""));
+        assert!(html.contains("data-start=\"20\""));
+        assert_eq!(html.matches("<input type=\"range\"").count(), 2);
+        assert!(html.contains(
+            "<input type=\"range\" min=\"0\" max=\"100\" value=\"20\" aria-label=\"Volume\" tabindex=\"0\" data-start>"
+        ));
+        assert!(html.contains(
+            "<input type=\"range\" min=\"0\" max=\"100\" value=\"80\" aria-label=\"Volume\" tabindex=\"0\">"
+        ));
+        assert_eq!(html.matches("role=\"slider\"").count(), 2);
+        reject_interact(&html);
     }
 
     #[test]
@@ -252,10 +286,11 @@ mod tests {
     fn chrome_is_token_only() {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"slider\"]"));
-        assert!(css.contains("[data-slot=\"slider\"] > span:first-child {"));
-        assert!(css.contains("[data-slot=\"slider\"] > span:first-child > span {"));
-        assert!(css.contains("[data-slot=\"slider\"] > span:not(:first-child) {"));
-        assert!(css.contains("[data-slot=\"slider\"] > span:not(:first-child) > span {"));
+        assert!(css.contains("& > input[type=\"range\"] {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:first-of-type {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:first-of-type > span {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:not(:first-of-type) {"));
+        assert!(css.contains("[data-slot=\"slider\"] > span:not(:first-of-type) > span {"));
         assert!(css.contains("[data-slot=\"slider\"][data-value=\"0\"] { --cui-slider-value: 0; }"));
         assert!(
             css.contains("[data-slot=\"slider\"][data-value=\"50\"] { --cui-slider-value: 50; }")

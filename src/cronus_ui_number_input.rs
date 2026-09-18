@@ -5,15 +5,15 @@
 //! `<input data-slot="number-input-field" type="text" inputmode="numeric"
 //! role="spinbutton">` > increment `<button>` (lucide plus).
 //!
-//! The field stays a native, editable text input. Stepping needs JS, so both
-//! steppers are the same native buttons with `disabled` and React's idle look
-//! (not dimmed). Not reproduced: Arrow/Page/Home/End stepping, clamping and
-//! precision formatting on blur.
+//! The field stays a native, editable text input. Steppers carry
+//! `data-number-input-step` and stay enabled unless the field is disabled;
+//! page runtime increments the value. Not reproduced: Arrow/Page/Home/End
+//! stepping, clamping and precision formatting on blur.
 //!
 //! Props: `value` (number), `min`, `max` (→ `aria-valuemin/max`),
 //! `aria-label` (else the label), `placeholder`.
 
-use crate::cronus_ui_kit::{attr_nonempty, attr_num, esc, label_of};
+use crate::cronus_ui_kit::{attr_nonempty, attr_num, esc, flag_any, label_of};
 use crate::parser::ComponentNode;
 
 const MINUS: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path></svg>";
@@ -60,8 +60,13 @@ pub fn render(comp: &ComponentNode) -> String {
         let v = fmt(v);
         field.push_str(&format!(" aria-valuenow=\"{v}\" aria-valuetext=\"{v}\""));
     }
+    let disabled = flag_any(comp, "disabled");
+    if disabled {
+        field.push_str(" disabled");
+    }
+    let dis = if disabled { " disabled" } else { "" };
     format!(
-        "<div data-slot=\"number-input\"><button type=\"button\" data-slot=\"number-input-decrement\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Decrement\" disabled>{MINUS}</button><input {field}><button type=\"button\" data-slot=\"number-input-increment\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Increment\" disabled>{PLUS}</button></div>"
+        "<div data-slot=\"number-input\"><button type=\"button\" data-slot=\"number-input-decrement\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Decrement\" data-number-input-step=\"-1\"{dis}>{MINUS}</button><input {field}><button type=\"button\" data-slot=\"number-input-increment\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Increment\" data-number-input-step=\"1\"{dis}>{PLUS}</button></div>"
     )
 }
 
@@ -82,7 +87,7 @@ mod tests {
         assert_eq!(
             render(&fixture()),
             format!(
-                "<div data-slot=\"number-input\"><button type=\"button\" data-slot=\"number-input-decrement\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Decrement\" disabled>{MINUS}</button><input data-slot=\"number-input-field\" type=\"text\" inputmode=\"numeric\" role=\"spinbutton\" autocomplete=\"off\" value=\"5\" aria-label=\"Quantity\" aria-valuenow=\"5\" aria-valuetext=\"5\"><button type=\"button\" data-slot=\"number-input-increment\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Increment\" disabled>{PLUS}</button></div>"
+                "<div data-slot=\"number-input\"><button type=\"button\" data-slot=\"number-input-decrement\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Decrement\" data-number-input-step=\"-1\">{MINUS}</button><input data-slot=\"number-input-field\" type=\"text\" inputmode=\"numeric\" role=\"spinbutton\" autocomplete=\"off\" value=\"5\" aria-label=\"Quantity\" aria-valuenow=\"5\" aria-valuetext=\"5\"><button type=\"button\" data-slot=\"number-input-increment\" data-variant=\"outline\" tabindex=\"-1\" aria-label=\"Increment\" data-number-input-step=\"1\">{PLUS}</button></div>"
             )
         );
     }
@@ -100,6 +105,19 @@ mod tests {
         for bad in ["type=\"number\"", "v-model", "v-data", "style=", "<label"] {
             assert!(!html.contains(bad), "{bad}");
         }
+        assert!(html.contains("data-number-input-step=\"-1\""));
+        assert!(html.contains("data-number-input-step=\"1\""));
+        assert!(!html.contains(" disabled"));
+    }
+
+    #[test]
+    fn steppers_disabled_when_field_is_disabled() {
+        let mut c = stub("number-input", "Qty");
+        c.props.insert("disabled".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("data-number-input-step=\"-1\" disabled>"));
+        assert!(html.contains("data-number-input-step=\"1\" disabled>"));
+        assert!(html.contains("number-input-field\" type=\"text\" inputmode=\"numeric\" role=\"spinbutton\" autocomplete=\"off\" aria-label=\"Qty\" disabled>"));
     }
 
     #[test]

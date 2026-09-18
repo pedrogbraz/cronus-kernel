@@ -7,9 +7,11 @@
 //! wrapper's next sibling inside a plain anchor `<div>` (so `autocomplete` keeps
 //! React's empty text and 40px box), absolutely positioned 4px under the input at
 //! the input's width (sideOffset 4, align start).
-//! Options are filtered statically with React's local `includes` match on the
-//! initial value. Live re-filtering, keyboard highlight and picking need JS, so
-//! rows are non-interactive `role="option"` divs. Empty query → closed (React).
+//! The full option list is always in `autocomplete-content` as
+//! `<button type="button" data-slot="command-item" role="option">` rows (page
+//! runtime filters on input). Empty query (or no `includes` match) keeps the
+//! content `hidden` / `data-state="closed"`; non-matching rows carry `hidden`.
+//! The input is never disabled unless the author sets `disabled`.
 //! Not interact `select("autocomplete")` (`<label><select data-slot="autocomplete-control">`).
 
 use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item};
@@ -22,11 +24,12 @@ pub fn render(comp: &ComponentNode) -> String {
     let disabled = flag(comp, "disabled");
     let aria = aria_label_of(comp);
     let needle = value.to_lowercase();
-    let matches: Vec<&String> = options
+    let hits: Vec<bool> = options
         .iter()
-        .filter(|o| o.to_lowercase().contains(&needle))
+        .map(|o| o.to_lowercase().contains(&needle))
         .collect();
-    let open = !value.is_empty() && !disabled && !matches.is_empty();
+    let any = hits.iter().copied().any(|h| h);
+    let open = !value.is_empty() && !disabled && any;
     let list_id = crate::cronus_ui_kit::widget_id(comp, "list");
 
     let mut field = format!(
@@ -44,19 +47,19 @@ pub fn render(comp: &ComponentNode) -> String {
     }
     if disabled {
         field.push_str(" disabled");
-    }
-    if !open {
         return format!("<div data-slot=\"autocomplete\"><input {field} /></div>");
     }
     field.push_str(&format!(" aria-controls=\"{list_id}\""));
 
-    let rows = matches
+    let first_hit = hits.iter().position(|h| *h);
+    let rows = options
         .iter()
         .enumerate()
         .map(|(i, t)| {
-            let sel = if i == 0 { "true" } else { "false" };
+            let sel = if Some(i) == first_hit { "true" } else { "false" };
+            let hidden = if hits[i] { "" } else { " hidden" };
             format!(
-                "<div data-slot=\"command-item\" role=\"option\" aria-selected=\"{sel}\" data-selected=\"{sel}\"><span>{t}</span></div>"
+                "<button type=\"button\" data-slot=\"command-item\" role=\"option\" aria-selected=\"{sel}\" data-selected=\"{sel}\"{hidden}><span>{t}</span></button>"
             )
         })
         .collect::<Vec<_>>()
@@ -66,8 +69,13 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         format!(" aria-label=\"{aria}\"")
     };
+    let (state, hidden) = if open {
+        ("open", "")
+    } else {
+        ("closed", " hidden")
+    };
     format!(
-        "<div><div data-slot=\"autocomplete\"><input {field} /></div><div data-side=\"bottom\" data-align=\"start\" data-state=\"open\" role=\"dialog\" data-slot=\"autocomplete-content\"><div data-slot=\"autocomplete-command\"><div data-slot=\"command-list\" role=\"listbox\"{list_label} id=\"{list_id}\"><div>{rows}</div></div></div></div></div>"
+        "<div><div data-slot=\"autocomplete\"><input {field} /></div><div data-side=\"bottom\" data-align=\"start\" data-state=\"{state}\" role=\"dialog\" data-slot=\"autocomplete-content\"{hidden}><div data-slot=\"autocomplete-command\"><div data-slot=\"command-list\" role=\"listbox\"{list_label} id=\"{list_id}\"><div>{rows}</div></div></div></div></div>"
     )
 }
 
@@ -141,7 +149,6 @@ mod tests {
         assert!(!html.contains("</select>"));
         assert!(!html.contains("data-slot=\"autocomplete-control\""));
         assert!(!html.contains("<label"));
-        assert!(!html.contains("<button"));
         assert!(!html.contains(" style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -149,14 +156,27 @@ mod tests {
         assert!(!html.contains("onclick="));
     }
 
+    fn item(t: &str, selected: bool, hidden: bool) -> String {
+        let sel = if selected { "true" } else { "false" };
+        let hide = if hidden { " hidden" } else { "" };
+        format!(
+            "<button type=\"button\" data-slot=\"command-item\" role=\"option\" aria-selected=\"{sel}\" data-selected=\"{sel}\"{hide}><span>{t}</span></button>"
+        )
+    }
+
     #[test]
-    fn empty_query_renders_closed_input_only() {
+    fn empty_query_emits_hidden_full_list() {
         let html = render(&auto("Search", &["Ada", "Grace"]));
         reject_interact(&html);
         assert_eq!(
             html,
-            "<div data-slot=\"autocomplete\"><input type=\"text\" role=\"combobox\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"none\" spellcheck=\"false\" aria-autocomplete=\"list\" aria-expanded=\"false\" data-slot=\"autocomplete-input\" placeholder=\"Search\" /></div>"
+            format!(
+                "<div><div data-slot=\"autocomplete\"><input type=\"text\" role=\"combobox\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"none\" spellcheck=\"false\" aria-autocomplete=\"list\" aria-expanded=\"false\" data-slot=\"autocomplete-input\" placeholder=\"Search\" aria-controls=\"cui-autocomplete-list\" /></div><div data-side=\"bottom\" data-align=\"start\" data-state=\"closed\" role=\"dialog\" data-slot=\"autocomplete-content\" hidden><div data-slot=\"autocomplete-command\"><div data-slot=\"command-list\" role=\"listbox\" id=\"cui-autocomplete-list\"><div>{}{}</div></div></div></div></div>",
+                item("Ada", true, false),
+                item("Grace", false, false)
+            )
         );
+        assert!(!html.contains(" disabled"));
     }
 
     /// Emitted fixture: `label/text "Type a city"`, texts Lisbon/Lima/London,
@@ -173,7 +193,12 @@ mod tests {
         reject_interact(&html);
         assert_eq!(
             html,
-            "<div><div data-slot=\"autocomplete\"><input type=\"text\" role=\"combobox\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"none\" spellcheck=\"false\" aria-autocomplete=\"list\" aria-expanded=\"true\" aria-label=\"City\" data-slot=\"autocomplete-input\" placeholder=\"Type a city\" value=\"L\" aria-controls=\"cui-autocomplete-list\" /></div><div data-side=\"bottom\" data-align=\"start\" data-state=\"open\" role=\"dialog\" data-slot=\"autocomplete-content\"><div data-slot=\"autocomplete-command\"><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"City\" id=\"cui-autocomplete-list\"><div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"true\" data-selected=\"true\"><span>Lisbon</span></div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\" data-selected=\"false\"><span>Lima</span></div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\" data-selected=\"false\"><span>London</span></div></div></div></div></div></div>"
+            format!(
+                "<div><div data-slot=\"autocomplete\"><input type=\"text\" role=\"combobox\" autocomplete=\"off\" autocorrect=\"off\" autocapitalize=\"none\" spellcheck=\"false\" aria-autocomplete=\"list\" aria-expanded=\"true\" aria-label=\"City\" data-slot=\"autocomplete-input\" placeholder=\"Type a city\" value=\"L\" aria-controls=\"cui-autocomplete-list\" /></div><div data-side=\"bottom\" data-align=\"start\" data-state=\"open\" role=\"dialog\" data-slot=\"autocomplete-content\"><div data-slot=\"autocomplete-command\"><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"City\" id=\"cui-autocomplete-list\"><div>{}{}{}</div></div></div></div></div>",
+                item("Lisbon", true, false),
+                item("Lima", false, false),
+                item("London", false, false)
+            )
         );
     }
 
@@ -196,12 +221,18 @@ mod tests {
         let mut c = auto("Search", &["Ada", "Grace", "Linus"]);
         c.props.insert("value".into(), "GR".into());
         let html = render(&c);
-        assert_eq!(html.matches("data-slot=\"command-item\"").count(), 1);
-        assert!(html.contains("data-selected=\"true\"><span>Grace</span>"));
+        assert_eq!(html.matches("data-slot=\"command-item\"").count(), 3);
+        assert!(html.contains(&item("Ada", false, true)));
+        assert!(html.contains(&item("Grace", true, false)));
+        assert!(html.contains(&item("Linus", false, true)));
+        assert!(html.contains("data-state=\"open\""));
         c.props.insert("value".into(), "zzz".into());
         let closed = render(&c);
         assert!(closed.contains("aria-expanded=\"false\""));
-        assert!(!closed.contains("autocomplete-content"));
+        assert!(closed.contains("data-slot=\"autocomplete-content\" hidden"));
+        assert!(closed.contains(&item("Ada", false, true)));
+        assert!(closed.contains(&item("Grace", false, true)));
+        assert!(closed.contains(&item("Linus", false, true)));
     }
 
     #[test]

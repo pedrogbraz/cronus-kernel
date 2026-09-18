@@ -9,18 +9,27 @@
 //! visually hidden radio (`name:"…"` prop, else a widget id): the choice submits
 //! with a form. The trigger text follows the checked radio in CSS (`data-oN`
 //! labels on the text span + `attr()`, first 12 options), like select.
-//! Gaps: no search input / filtering (cmdk needs JS), picking does not close the
-//! popover, `aria-expanded` is not reflected, the swapped text is a CSS
+//! cmdk search is a live `<input data-slot="combobox-input">` (never disabled)
+//! in `command-input-wrapper` plus a hidden `command-empty`; page runtime
+//! (`cronus_ui_live.js`) filters items and `hidePopover()`s on pick.
+//! Remaining gaps: `aria-expanded` is not reflected, the swapped text is a CSS
 //! pseudo-element, and the popup is a native `radiogroup`, not a listbox.
 //! A real `disabled` prop adds `data-disabled`, `disabled` and dims like React
 //! `disabled:opacity-50`.
 //! Not interact `select("combobox")` (`<label><select data-slot="combobox-control">`).
 
-use crate::cronus_ui_kit::{choice_texts, content_texts, esc, item, widget_id};
+use crate::cronus_ui_kit::{attr_nonempty, choice_texts, content_texts, esc, item, widget_id};
 use crate::parser::ComponentNode;
 
 /// lucide `chevrons-up-down` (React `size-4 opacity-60 ml-2`).
 const CHEVRONS: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m7 15 5 5 5-5\"></path><path d=\"m7 9 5-5 5 5\"></path></svg>";
+
+/// lucide `search` (React CommandInput `size-4`).
+const SEARCH_ICON: &str = concat!(
+    "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" ",
+    "stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\">",
+    "<circle cx=\"11\" cy=\"11\" r=\"8\" /><path d=\"m21 21-4.3-4.3\" /></svg>",
+);
 
 /// Options whose label the trigger can show (one CSS rule each in combobox.css).
 const SWAP_MAX: usize = 12;
@@ -84,9 +93,31 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect();
     let aria = aria_prop.unwrap_or_else(|| placeholder.clone());
+    let search = search_row(comp);
+    let empty = empty_of(comp);
     format!(
-        "<button {attrs}><span{labels}>{trigger}</span>{CHEVRONS}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"combobox-content\" role=\"radiogroup\" aria-label=\"{aria}\" anchor=\"{trigger_id}\">{items}</div>"
+        "<button {attrs}><span{labels}>{trigger}</span>{CHEVRONS}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"combobox-content\" role=\"radiogroup\" aria-label=\"{aria}\" anchor=\"{trigger_id}\">{search}<div data-slot=\"command-list\"><div data-slot=\"command-empty\" role=\"presentation\" hidden>{empty}</div>{items}</div></div>"
     )
+}
+
+/// cmdk `CommandInput`: icon + live text field. Never `disabled` — page runtime
+/// filters `[data-slot=combobox-item]` against it.
+fn search_row(comp: &ComponentNode) -> String {
+    let placeholder = attr_nonempty(comp, "searchPlaceholder")
+        .or_else(|| attr_nonempty(comp, "search-placeholder"))
+        .map(esc)
+        .unwrap_or_else(|| "Search…".into());
+    format!(
+        "<div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"combobox-input\" type=\"text\" placeholder=\"{placeholder}\" autocomplete=\"off\" spellcheck=\"false\" /></div>"
+    )
+}
+
+fn empty_of(comp: &ComponentNode) -> String {
+    attr_nonempty(comp, "emptyText")
+        .or_else(|| attr_nonempty(comp, "empty-text"))
+        .or_else(|| attr_nonempty(comp, "empty"))
+        .map(esc)
+        .unwrap_or_else(|| "No results found.".into())
 }
 
 /// Choice items, else the `text` lines after the label, minus the placeholder
@@ -195,10 +226,52 @@ mod tests {
         let tid = crate::cronus_ui_kit::widget_id(&c, "trigger");
         let pid = crate::cronus_ui_kit::widget_id(&c, "listbox");
         let name = crate::cronus_ui_kit::widget_id(&c, "value");
+        let search = format!(
+            "<div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"combobox-input\" type=\"text\" placeholder=\"Search…\" autocomplete=\"off\" spellcheck=\"false\" /></div>"
+        );
+        let empty =
+            "<div data-slot=\"command-empty\" role=\"presentation\" hidden>No results found.</div>";
         assert_eq!(
             html,
-            format!("<button type=\"button\" id=\"{tid}\" data-slot=\"combobox-trigger\" data-variant=\"outline\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\" data-state=\"closed\" data-placeholder=\"\" popovertarget=\"{pid}\" aria-controls=\"{pid}\"><span data-o1=\"Ada\" data-o2=\"Grace\">Search</span>{CHEVRONS}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"combobox-content\" role=\"radiogroup\" aria-label=\"Search\" anchor=\"{tid}\"><label data-slot=\"combobox-item\" data-option=\"1\"><input type=\"radio\" name=\"{name}\" value=\"Ada\"><span>Ada</span></label><label data-slot=\"combobox-item\" data-option=\"2\"><input type=\"radio\" name=\"{name}\" value=\"Grace\"><span>Grace</span></label></div>")
+            format!("<button type=\"button\" id=\"{tid}\" data-slot=\"combobox-trigger\" data-variant=\"outline\" role=\"combobox\" aria-expanded=\"false\" aria-haspopup=\"listbox\" data-state=\"closed\" data-placeholder=\"\" popovertarget=\"{pid}\" aria-controls=\"{pid}\"><span data-o1=\"Ada\" data-o2=\"Grace\">Search</span>{CHEVRONS}</button><div id=\"{pid}\" popover=\"auto\" data-slot=\"combobox-content\" role=\"radiogroup\" aria-label=\"Search\" anchor=\"{tid}\">{search}<div data-slot=\"command-list\">{empty}<label data-slot=\"combobox-item\" data-option=\"1\"><input type=\"radio\" name=\"{name}\" value=\"Ada\"><span>Ada</span></label><label data-slot=\"combobox-item\" data-option=\"2\"><input type=\"radio\" name=\"{name}\" value=\"Grace\"><span>Grace</span></label></div></div>")
         );
+    }
+
+    #[test]
+    fn search_input_is_live_and_not_disabled() {
+        let html = render(&combo("Search", &["Ada", "Grace"]));
+        reject_interact(&html);
+        let start = html
+            .find("data-slot=\"combobox-input\"")
+            .expect("combobox-input");
+        let tag = &html[start..start + html[start..].find('>').unwrap()];
+        assert!(
+            !tag.contains("disabled"),
+            "search field must be typable: {tag}"
+        );
+        assert!(html.contains("placeholder=\"Search…\""));
+        assert!(html.contains("data-slot=\"command-empty\" role=\"presentation\" hidden>"));
+        let mut c = combo("Search", &["Ada"]);
+        c.props.insert("disabled".into(), "true".into());
+        let disabled = render(&c);
+        let start = disabled
+            .find("data-slot=\"combobox-input\"")
+            .expect("combobox-input");
+        let tag = &disabled[start..start + disabled[start..].find('>').unwrap()];
+        assert!(!tag.contains("disabled"), "input stays live: {tag}");
+    }
+
+    #[test]
+    fn search_placeholder_and_empty_text_from_props() {
+        let mut c = combo("Search", &["Ada"]);
+        c.props
+            .insert("searchPlaceholder".into(), "Find \"x\"".into());
+        c.props.insert("emptyText".into(), "None".into());
+        let html = render(&c);
+        reject_interact(&html);
+        assert!(html.contains("placeholder=\"Find &quot;x&quot;\""));
+        assert!(html
+            .contains("<div data-slot=\"command-empty\" role=\"presentation\" hidden>None</div>"));
     }
 
     #[test]
@@ -275,6 +348,7 @@ mod tests {
         let css = crate::cronus_ui::component_chrome_css();
         assert!(css.contains("[data-slot=\"combobox-content\"]:popover-open {"));
         assert!(css.contains("[data-slot=\"combobox-item\"] {"));
+        assert!(css.contains("[data-slot=\"combobox-input\"]"));
         assert!(css.contains(
             "[data-slot=\"combobox-trigger\"]:has(+ [data-slot=\"combobox-content\"] [data-option=\"1\"] > :checked) > span::before { content: attr(data-o1); }"
         ));

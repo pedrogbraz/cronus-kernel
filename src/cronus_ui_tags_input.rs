@@ -3,8 +3,8 @@
 //! per committed tag (`<span>tag</span>` + `<button data-slot="tags-input-remove">`
 //! holding a lucide `x`), then `<input data-slot="tags-input-field">`.
 //! The field placeholder is only shown while there are no tags (React).
-//! Adding / removing tags needs JS: the remove buttons are React's native
-//! `<button tabindex="-1">` rendered `disabled`, with React's idle look (not dimmed).
+//! Remove chips are live `<button type="button" data-slot="tags-input-remove">`
+//! (disabled only when the root is). Page runtime commits tags from the field.
 //! Not interact `select("tags-input")` (`<label><select data-slot="tags-input-control">`).
 
 use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item};
@@ -59,7 +59,7 @@ fn chip(tag: &str, disabled: bool) -> String {
         );
     }
     format!(
-        "<span data-slot=\"badge\" data-variant=\"secondary\"><span>{tag}</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove {tag}\" data-slot=\"tags-input-remove\" disabled>{X_ICON}</button></span>"
+        "<span data-slot=\"badge\" data-variant=\"secondary\"><span>{tag}</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove {tag}\" data-slot=\"tags-input-remove\">{X_ICON}</button></span>"
     )
 }
 
@@ -149,7 +149,7 @@ mod tests {
         reject_interact(&html);
         assert_eq!(
             html,
-            format!("<div data-slot=\"tags-input\"><span data-slot=\"badge\" data-variant=\"secondary\"><span>react</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove react\" data-slot=\"tags-input-remove\" disabled>{X_ICON}</button></span><span data-slot=\"badge\" data-variant=\"secondary\"><span>vue</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove vue\" data-slot=\"tags-input-remove\" disabled>{X_ICON}</button></span><input type=\"text\" autocomplete=\"off\" aria-label=\"Add a tag\" data-slot=\"tags-input-field\" /></div>")
+            format!("<div data-slot=\"tags-input\"><span data-slot=\"badge\" data-variant=\"secondary\"><span>react</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove react\" data-slot=\"tags-input-remove\">{X_ICON}</button></span><span data-slot=\"badge\" data-variant=\"secondary\"><span>vue</span><button type=\"button\" tabindex=\"-1\" aria-label=\"Remove vue\" data-slot=\"tags-input-remove\">{X_ICON}</button></span><input type=\"text\" autocomplete=\"off\" aria-label=\"Add a tag\" data-slot=\"tags-input-field\" /></div>")
         );
     }
 

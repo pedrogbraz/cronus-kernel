@@ -1,14 +1,18 @@
 //! Dedicated InputOTP renderer. DOM mirrors React (input-otp lib):
 //! `<div data-input-otp-container>` holding `input-otp-group` of
 //! `input-otp-slot`s plus an overlay `<div><input data-slot="input-otp">`.
-//! The real input sits transparent over the slots; zero JS, so slots show the
-//! initial value only. Not interact `otp()` (`<fieldset style=BASE>` +
+//! Length 6 inserts `input-otp-separator` (lucide minus) after the 3rd slot.
+//! The real input sits transparent over the slots; live.js paints digits and
+//! the active fake caret. Not interact `otp()` (`<fieldset style=BASE>` +
 //! `maxlength=1` inputs with CTRL).
 
 use crate::cronus_ui_kit::{attr, attr_nonempty, esc};
 use crate::parser::ComponentNode;
 
 const SLOTS: usize = 6;
+
+/// lucide `minus` (React `<Minus className="size-4" />`).
+const MINUS: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
     let n = length_of(comp);
@@ -21,10 +25,15 @@ pub fn render(comp: &ComponentNode) -> String {
             .map(|c| c.to_string())
             .unwrap_or_default();
         group.push_str(&format!("<div data-slot=\"input-otp-slot\">{ch}</div>"));
+        if n == 6 && i == 2 {
+            group.push_str(&format!(
+                "<div data-slot=\"input-otp-separator\" aria-hidden=\"true\">{MINUS}</div>"
+            ));
+        }
     }
     let label = aria_label_of(comp);
     format!(
-        "<div data-input-otp-container=\"true\"><div data-slot=\"input-otp-group\">{group}</div><div><input data-slot=\"input-otp\" autocomplete=\"one-time-code\" aria-label=\"{label}\" inputmode=\"numeric\" maxlength=\"{n}\" value=\"{digits}\" /></div></div>"
+        "<div data-input-otp-container=\"true\"><div data-slot=\"input-otp-group\">{group}</div><div><input data-slot=\"input-otp\" type=\"text\" autocomplete=\"one-time-code\" aria-label=\"{label}\" inputmode=\"numeric\" maxlength=\"{n}\" value=\"{digits}\" /></div></div>"
     )
 }
 
@@ -69,13 +78,23 @@ mod tests {
     fn slots(values: &[&str]) -> String {
         values
             .iter()
-            .map(|v| format!("<div data-slot=\"input-otp-slot\">{v}</div>"))
+            .enumerate()
+            .map(|(i, v)| {
+                let slot = format!("<div data-slot=\"input-otp-slot\">{v}</div>");
+                if values.len() == 6 && i == 2 {
+                    format!(
+                        "{slot}<div data-slot=\"input-otp-separator\" aria-hidden=\"true\">{MINUS}</div>"
+                    )
+                } else {
+                    slot
+                }
+            })
             .collect()
     }
 
     fn expected(slot_html: &str, label: &str, n: usize, value: &str) -> String {
         format!(
-            "<div data-input-otp-container=\"true\"><div data-slot=\"input-otp-group\">{slot_html}</div><div><input data-slot=\"input-otp\" autocomplete=\"one-time-code\" aria-label=\"{label}\" inputmode=\"numeric\" maxlength=\"{n}\" value=\"{value}\" /></div></div>"
+            "<div data-input-otp-container=\"true\"><div data-slot=\"input-otp-group\">{slot_html}</div><div><input data-slot=\"input-otp\" type=\"text\" autocomplete=\"one-time-code\" aria-label=\"{label}\" inputmode=\"numeric\" maxlength=\"{n}\" value=\"{value}\" /></div></div>"
         )
     }
 
@@ -108,6 +127,8 @@ mod tests {
             )
         );
         assert_eq!(html.matches("data-slot=\"input-otp\"").count(), 1);
+        assert!(html.contains("type=\"text\""));
+        assert!(html.contains("data-slot=\"input-otp-separator\""));
         assert!(!html.contains("role=\"group\""));
         reject_interact(&html);
     }
@@ -141,6 +162,7 @@ mod tests {
                 "{key}"
             );
             assert!(html.contains("maxlength=\"4\""), "{key}");
+            assert!(!html.contains("data-slot=\"input-otp-separator\""), "{key}");
             reject_interact(&html);
         }
     }
@@ -191,7 +213,10 @@ mod tests {
         // wave1s geometry parity: React container inherits 24px line-height,
         // slots are text-sm (20px); left border exists but is 0 wide except first.
         assert!(css.contains(
-            "[data-input-otp-container] {\n  position: relative; display: flex; align-items: center; gap: 0.5rem;\n  line-height: 1.5; cursor: text; user-select: none; pointer-events: none;\n}"
+            "[data-input-otp-container] {\n  position: relative; display: flex; align-items: center; gap: 0.5rem;\n  line-height: 1.5; cursor: text; user-select: none; pointer-events: auto;\n}"
+        ));
+        assert!(css.contains(
+            "[data-input-otp-container] > div:last-child {\n  position: absolute; inset: 0; pointer-events: all;\n}"
         ));
         assert!(css.contains(
             "  border: 0 solid var(--cronus-border);\n  border-top-width: 1px; border-inline-end-width: 1px; border-bottom-width: 1px;\n  font-size: 0.875rem; line-height: 1.25rem; color: var(--cronus-fg);"
@@ -200,6 +225,9 @@ mod tests {
             "[data-slot=\"input-otp-slot\"]:first-child {\n  border-inline-start-width: 1px;"
         ));
         assert!(css.contains("var(--cronus-border)"));
+        assert!(css.contains("&[data-active=\"true\"]"));
+        assert!(css.contains("animation: caret-blink 1.25s ease-out infinite"));
+        assert!(css.contains("&[data-active=\"true\"]:not(:empty)::after { content: none; }"));
         assert!(!css.contains("zinc-"));
     }
 }

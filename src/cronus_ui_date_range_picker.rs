@@ -6,10 +6,10 @@
 //! `<fieldset data-slot="date-range-picker-presets">` (sr-only legend + one
 //! ghost `sm` `<button data-slot="date-range-picker-preset">` per `item`) +
 //! `<fieldset data-slot="date-range-picker-calendar">` (sr-only legend + the
-//! real `Calendar` in range mode, `cronus_ui_calendar::render_spec`).
+//! real `Calendar` in range mode, `cronus_ui_calendar::render_spec_named`).
 //! Zero JS: the panel is a native `popover="auto"` anchored to the trigger.
-//! Selecting days and applying presets need JS, so those buttons are
-//! `disabled` with React's idle look.
+//! Days are radios (`name` = `widget_id(comp, "day")`); presets are live
+//! buttons (`data-range-preset` from the item label).
 //!
 //! Props: `from:"YYYY-MM-DD"` / `to:"YYYY-MM-DD"` (or `value:"from..to"`)
 //! select the range and label the trigger with date-fns `LLL dd, y`
@@ -64,17 +64,20 @@ pub fn render(comp: &ComponentNode) -> String {
         Some((y, m, _)) => (y, m),
         None => FALLBACK_MONTH,
     };
-    let calendar = cronus_ui_calendar::render_spec(&Spec {
-        year,
-        month,
-        months: attr_num::<u32>(comp, "numberOfMonths")
-            .filter(|n| (1..=12).contains(n))
-            .unwrap_or(2),
-        selected: None,
-        range,
-        today: attr(comp, "today").and_then(parse_day),
-        fixed_weeks: false,
-    });
+    let calendar = cronus_ui_calendar::render_spec_named(
+        &Spec {
+            year,
+            month,
+            months: attr_num::<u32>(comp, "numberOfMonths")
+                .filter(|n| (1..=12).contains(n))
+                .unwrap_or(2),
+            selected: None,
+            range,
+            today: attr(comp, "today").and_then(parse_day),
+            fixed_weeks: false,
+        },
+        &widget_id(comp, "day"),
+    );
     let presets = presets_html(comp);
     format!(
         "<button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\"><div>{presets}<fieldset data-slot=\"date-range-picker-calendar\"><legend>{placeholder}</legend>{calendar}</fieldset></div></div>"
@@ -127,11 +130,14 @@ fn presets_html(comp: &ComponentNode) -> String {
     if presets.is_empty() {
         return String::new();
     }
+    let locked = flag(comp, "disabled");
     let buttons = presets
         .into_iter()
         .map(|t| {
+            let key = range_preset_key(&t);
+            let disabled = if locked { " disabled" } else { "" };
             format!(
-                "<button type=\"button\" disabled data-slot=\"date-range-picker-preset\" data-variant=\"ghost\">{t}</button>"
+                "<button type=\"button\"{disabled} data-slot=\"date-range-picker-preset\" data-variant=\"ghost\" data-range-preset=\"{key}\">{t}</button>"
             )
         })
         .collect::<Vec<_>>()
@@ -139,6 +145,38 @@ fn presets_html(comp: &ComponentNode) -> String {
     format!(
         "<fieldset data-slot=\"date-range-picker-presets\"><legend>Date range presets</legend>{buttons}</fieldset>"
     )
+}
+
+/// `Last 7 days` → `7d`, `This week` → `week`, `This month` → `month`.
+fn range_preset_key(label: &str) -> String {
+    let lower = label.to_ascii_lowercase();
+    let num: String = lower.chars().filter(|c| c.is_ascii_digit()).collect();
+    if lower.contains("day") && !num.is_empty() {
+        return format!("{num}d");
+    }
+    if lower.contains("week") {
+        return if num.is_empty() {
+            "week".into()
+        } else {
+            format!("{num}w")
+        };
+    }
+    if lower.contains("month") {
+        return if num.is_empty() {
+            "month".into()
+        } else {
+            format!("{num}m")
+        };
+    }
+    let mut slug = String::new();
+    for c in lower.chars() {
+        if c.is_ascii_alphanumeric() {
+            slug.push(c);
+        } else if !slug.is_empty() && !slug.ends_with('-') {
+            slug.push('-');
+        }
+    }
+    slug.trim_end_matches('-').to_string()
 }
 
 #[cfg(test)]
@@ -159,8 +197,6 @@ mod tests {
 
     fn reject_interact(html: &str) {
         assert!(!html.contains("type=\"date\""));
-        assert!(!html.contains("<input"));
-        assert!(!html.contains("<label"));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -176,7 +212,7 @@ mod tests {
         assert!(html.starts_with(
             "<button type=\"button\" id=\"cui-date-range-picker-trigger\" data-slot=\"date-range-picker-trigger\" data-variant=\"outline\" popovertarget=\"cui-date-range-picker-range\" aria-haspopup=\"dialog\" data-empty=\"\">"
         ));
-        assert!(html.contains("<span>Stay</span></button><div id=\"cui-date-range-picker-range\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"Stay\" anchor=\"cui-date-range-picker-trigger\"><div><fieldset data-slot=\"date-range-picker-calendar\"><legend>Stay</legend><div data-slot=\"calendar\">"));
+        assert!(html.contains("<span>Stay</span></button><div id=\"cui-date-range-picker-range\" popover=\"auto\" data-slot=\"date-range-picker-content\" role=\"dialog\" aria-label=\"Stay\" anchor=\"cui-date-range-picker-trigger\"><div><fieldset data-slot=\"date-range-picker-calendar\"><legend>Stay</legend><div data-slot=\"calendar\" data-month=\"2026-09\">"));
         assert!(!html.contains("date-range-picker-presets"));
         assert_eq!(
             html.matches("role=\"grid\"").count(),
@@ -186,6 +222,10 @@ mod tests {
         assert!(html.contains(">September 2026</span>"));
         assert!(html.contains(">October 2026</span>"));
         assert!(!html.contains("aria-selected"));
+        assert!(html.contains("name=\"cui-date-range-picker-day\""));
+        assert!(html.contains("type=\"radio\""));
+        assert!(html.contains("data-cal-nav=\"prev\""));
+        assert!(!html.contains("<button type=\"button\" disabled aria-label="));
         assert!(html.ends_with("</table></div></div></div></div></fieldset></div></div>"));
         reject_interact(&html);
     }
@@ -209,6 +249,9 @@ mod tests {
         assert!(html.contains("class=\"day-range-start\" aria-selected=\"true\""));
         assert!(html.contains("class=\"day-range-end\" aria-selected=\"true\""));
         assert_eq!(html.matches("day-range-middle").count(), 5);
+        assert!(html.contains(
+            "<input type=\"radio\" name=\"cui-date-range-picker-day\" value=\"2026-06-21\">"
+        ));
         reject_interact(&html);
 
         let mut open = stub("date-range-picker", "Stay");
@@ -219,15 +262,19 @@ mod tests {
     }
 
     /// Docs "With presets": `item` lines become the ghost `sm` preset column
-    /// beside the calendar (JS applies them, so they are disabled).
+    /// beside the calendar (`data-range-preset` from the label).
     #[test]
     fn presets_from_items() {
         let mut c = stub("date-range-picker", "Stay");
         c.items.push(extra("item", "Last 7 days"));
+        c.items.push(extra("item", "Last 30 days"));
+        c.items.push(extra("item", "This week"));
         c.items.push(extra("item", "This month"));
         let html = render(&c);
-        assert!(html.contains("<div><fieldset data-slot=\"date-range-picker-presets\"><legend>Date range presets</legend><button type=\"button\" disabled data-slot=\"date-range-picker-preset\" data-variant=\"ghost\">Last 7 days</button><button type=\"button\" disabled data-slot=\"date-range-picker-preset\" data-variant=\"ghost\">This month</button></fieldset><fieldset data-slot=\"date-range-picker-calendar\">"));
+        assert!(html.contains("<div><fieldset data-slot=\"date-range-picker-presets\"><legend>Date range presets</legend><button type=\"button\" data-slot=\"date-range-picker-preset\" data-variant=\"ghost\" data-range-preset=\"7d\">Last 7 days</button><button type=\"button\" data-slot=\"date-range-picker-preset\" data-variant=\"ghost\" data-range-preset=\"30d\">Last 30 days</button><button type=\"button\" data-slot=\"date-range-picker-preset\" data-variant=\"ghost\" data-range-preset=\"week\">This week</button><button type=\"button\" data-slot=\"date-range-picker-preset\" data-variant=\"ghost\" data-range-preset=\"month\">This month</button></fieldset><fieldset data-slot=\"date-range-picker-calendar\">"));
         assert!(!html.contains("date-range-picker-preset\" data-variant=\"ghost\">Stay"));
+        assert!(!html
+            .contains("data-slot=\"date-range-picker-preset\" data-variant=\"ghost\" disabled"));
         reject_interact(&html);
     }
 
@@ -251,9 +298,9 @@ mod tests {
     fn skips_interact_native_date_pair() {
         let c = stub("date-range-picker", "Stay");
         let html = render(&c);
-        assert!(!html.contains("<input"));
         assert!(!html.contains("type=\"date\""));
         assert!(html.contains("data-slot=\"date-range-picker-trigger\""));
+        assert!(html.contains("type=\"radio\""));
         reject_interact(&html);
     }
 

@@ -1,14 +1,13 @@
 //! Dedicated SignaturePad renderer. DOM matches React idle (empty pad):
 //! `<div data-slot="signature-pad" data-empty="true">` with
-//! the `signature-pad-canvas` surface, the `signature-pad-hint`
-//! (dashed rule + fixed "Sign here" caption) and the two ghost `icon-sm`
-//! Buttons (Undo / Clear), which React renders `disabled` while the pad has
-//! no ink. Drawing needs pointer JS, so the kernel stays in that idle state:
-//! the surface never receives ink and both buttons stay disabled.
-//! `disabled:true` is React's `disabled`: `data-disabled="true"` on the root
-//! (60% opacity), `aria-disabled` on the canvas (not-allowed cursor). React's
-//! `<canvas>` is emitted as a `<div>` (zero-JS renderers emit no canvas); the
-//! chrome makes it an absolute 100%×100% block, so its box is the same.
+//! the `signature-pad-canvas` surface (an inner SVG for live.js polylines),
+//! the `signature-pad-hint` (dashed rule + fixed "Sign here" caption) and the
+//! two ghost `icon-sm` Buttons (Undo / Clear). Undo/Clear stay enabled unless
+//! the author set `disabled:true`. `disabled:true` is React's `disabled`:
+//! `data-disabled="true"` on the root (60% opacity), `aria-disabled` on the
+//! canvas (not-allowed cursor). React's `<canvas>` is emitted as a `<div>`
+//! (zero-JS renderers emit no canvas) holding `<svg data-slot="signature-pad-surface">`;
+//! the chrome makes it an absolute 100%×100% block, so its box is the same.
 //! Not interact `signature()` (SURF box + canvas without the canvas slot).
 
 use crate::cronus_ui_kit::{attr_nonempty, esc, flag, label_of};
@@ -35,15 +34,16 @@ pub fn render(comp: &ComponentNode) -> String {
         ""
     };
     format!(
-        "<div data-slot=\"signature-pad\" data-empty=\"true\"{root}><div role=\"img\" aria-label=\"{label}\"{canvas} data-slot=\"signature-pad-canvas\"></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>{HINT}</span></div><div>{undo}{clear}</div></div>",
-        undo = button("Undo last stroke", UNDO_SVG),
-        clear = button("Clear signature", ERASER_SVG),
+        "<div data-slot=\"signature-pad\" data-empty=\"true\"{root}><div role=\"img\" aria-label=\"{label}\"{canvas} data-slot=\"signature-pad-canvas\"><svg data-slot=\"signature-pad-surface\" width=\"100%\" height=\"100%\"></svg></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>{HINT}</span></div><div>{undo}{clear}</div></div>",
+        undo = button("signature-pad-undo", "Undo last stroke", UNDO_SVG, disabled),
+        clear = button("signature-pad-clear", "Clear signature", ERASER_SVG, disabled),
     )
 }
 
-fn button(aria: &str, svg: &str) -> String {
+fn button(slot: &str, aria: &str, svg: &str, disabled: bool) -> String {
+    let disabled_attr = if disabled { " disabled" } else { "" };
     format!(
-        "<button data-slot=\"button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"{aria}\" disabled>{svg}</button>"
+        "<button data-slot=\"{slot}\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"{aria}\"{disabled_attr}>{svg}</button>"
     )
 }
 
@@ -70,16 +70,17 @@ mod tests {
     }
 
     /// wave1t: hint caption is React's fixed "Sign here" (the label names the
-    /// canvas), and the idle pad carries two disabled ghost icon buttons.
+    /// canvas). Undo/Clear are live unless the author disabled the pad.
     #[test]
     fn root_matches_react_idle_pad() {
         let html = render(&stub("signature-pad", "Signature pad"));
         let expected = format!(
-            "<div data-slot=\"signature-pad\" data-empty=\"true\"><div role=\"img\" aria-label=\"Signature pad\" data-slot=\"signature-pad-canvas\"></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>Sign here</span></div><div><button data-slot=\"button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Undo last stroke\" disabled>{UNDO_SVG}</button><button data-slot=\"button\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Clear signature\" disabled>{ERASER_SVG}</button></div></div>"
+            "<div data-slot=\"signature-pad\" data-empty=\"true\"><div role=\"img\" aria-label=\"Signature pad\" data-slot=\"signature-pad-canvas\"><svg data-slot=\"signature-pad-surface\" width=\"100%\" height=\"100%\"></svg></div><div aria-hidden=\"true\" data-slot=\"signature-pad-hint\"><div></div><span>Sign here</span></div><div><button data-slot=\"signature-pad-undo\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Undo last stroke\">{UNDO_SVG}</button><button data-slot=\"signature-pad-clear\" data-variant=\"ghost\" data-size=\"icon-sm\" type=\"button\" aria-label=\"Clear signature\">{ERASER_SVG}</button></div></div>"
         );
         assert_eq!(html, expected);
         assert!(!html.contains("<span>Signature pad</span>"));
-        assert_eq!(html.matches(" disabled>").count(), 2);
+        assert!(!html.contains(" disabled>"));
+        assert!(html.contains("data-slot=\"signature-pad-surface\""));
         reject_interact(&html);
     }
 
@@ -102,8 +103,10 @@ mod tests {
         let mut c = stub("signature-pad", "Signature");
         c.props.insert("disabled".into(), "true".into());
         let html = render(&c);
-        assert!(html.starts_with("<div data-slot=\"signature-pad\" data-empty=\"true\" data-disabled=\"true\"><div role=\"img\" aria-label=\"Signature\" aria-disabled=\"true\" data-slot=\"signature-pad-canvas\"></div>"));
+        assert!(html.starts_with("<div data-slot=\"signature-pad\" data-empty=\"true\" data-disabled=\"true\"><div role=\"img\" aria-label=\"Signature\" aria-disabled=\"true\" data-slot=\"signature-pad-canvas\"><svg data-slot=\"signature-pad-surface\" width=\"100%\" height=\"100%\"></svg></div>"));
         assert_eq!(html.matches(" disabled>").count(), 2);
+        assert!(html.contains("data-slot=\"signature-pad-undo\""));
+        assert!(html.contains("data-slot=\"signature-pad-clear\""));
         reject_interact(&html);
         let css = crate::cronus_ui::component_chrome_css();
         assert!(
@@ -144,7 +147,23 @@ mod tests {
         assert!(css.contains("[data-slot=\"signature-pad\"] [data-slot=\"button\"] {"));
         assert!(css.contains("border-width: 0; font-size: 0.875rem; line-height: 1.25rem;"));
         assert!(css.contains("[data-slot=\"signature-pad\"] [data-slot=\"button\"]:disabled"));
+        assert!(css.contains("[data-slot=\"signature-pad-surface\"]"));
+        assert!(css.contains("[data-slot=\"signature-pad-undo\"]"));
+        assert!(css.contains("[data-slot=\"signature-pad-clear\"]"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains("showModal"));
+    }
+
+    #[test]
+    fn surface_is_svg_not_canvas_and_actions_are_live() {
+        let html = render(&stub("signature-pad", "Sign here"));
+        assert!(html.contains(
+            "<svg data-slot=\"signature-pad-surface\" width=\"100%\" height=\"100%\"></svg>"
+        ));
+        assert!(!html.contains("<canvas"));
+        assert!(html.contains("data-slot=\"signature-pad-undo\""));
+        assert!(html.contains("data-slot=\"signature-pad-clear\""));
+        assert!(!html.contains(" disabled"));
+        reject_interact(&html);
     }
 }

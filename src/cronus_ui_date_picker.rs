@@ -4,19 +4,21 @@
 //! `<div data-slot="date-picker-content" role="dialog">` (`w-auto p-0`) that
 //! wraps the real `Calendar` (`cronus_ui_calendar::render_spec`, single mode).
 //! Zero JS: the panel is a native `popover="auto"` opened by `popovertarget`
-//! and anchored to the trigger; Esc / outside click dismiss it. Picking a day
-//! needs JS, so the calendar's day buttons stay `disabled` (idle look).
+//! and anchored to the trigger; Esc / outside click dismiss it. Calendar days
+//! are radios (`name:` or a widget id) so picking a day submits with the form.
+//! Trigger text stays the initial selected/placeholder (up to 42 days is too
+//! many for a CSS `data-oN` swap).
 //!
 //! Props: `value:"YYYY-MM-DD"` (or `defaultValue:`) selects the day and labels
 //! the trigger with date-fns `PPP` ("June 15th, 2026"); `placeholder:` (default
 //! "Pick a date", also the dialog's accessible name); `defaultMonth:"YYYY-MM"`
 //! picks the month when there is no value; `today:"YYYY-MM-DD"`;
 //! `disabled:true`; `invalid:true` (`aria-invalid`, error border and ring);
-//! `aria-label:"…"`; `name:"…"` mirrors the value into a hidden input for
-//! native forms, like React. Not interact `input("date-picker", "date")`.
+//! `aria-label:"…"`; `name:"…"` is the radio group so the picked day submits
+//! with native forms. Not interact `input("date-picker", "date")`.
 
 use crate::cronus_ui_calendar::{self, month_name, parse_day, Spec, FALLBACK_MONTH};
-use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 const ICON: &str = concat!(
@@ -36,8 +38,11 @@ pub fn render(comp: &ComponentNode) -> String {
         Some(v) => format_ppp(v),
         None => placeholder.clone(),
     };
-    let trigger_id = crate::cronus_ui_kit::widget_id(comp, "trigger");
-    let pop_id = crate::cronus_ui_kit::widget_id(comp, "cal");
+    let trigger_id = widget_id(comp, "trigger");
+    let pop_id = widget_id(comp, "cal");
+    let radio_name = attr_nonempty(comp, "name")
+        .map(esc)
+        .unwrap_or_else(|| widget_id(comp, "value"));
     let mut attrs = format!(
         "type=\"button\" id=\"{trigger_id}\" data-slot=\"date-picker-trigger\" data-variant=\"outline\" popovertarget=\"{pop_id}\" aria-haspopup=\"dialog\""
     );
@@ -57,28 +62,20 @@ pub fn render(comp: &ComponentNode) -> String {
         Some((y, m, _)) => (y, m),
         None => FALLBACK_MONTH,
     };
-    let calendar = cronus_ui_calendar::render_spec(&Spec {
-        year,
-        month,
-        months: 1,
-        selected: value,
-        range: None,
-        today: attr(comp, "today").and_then(parse_day),
-        fixed_weeks: false,
-    });
-    let hidden = attr_nonempty(comp, "name")
-        .map(|name| {
-            let v = value
-                .map(|(y, m, d)| format!("{y:04}-{m:02}-{d:02}"))
-                .unwrap_or_default();
-            format!(
-                "<input type=\"hidden\" name=\"{}\" value=\"{v}\">",
-                esc(name)
-            )
-        })
-        .unwrap_or_default();
+    let calendar = cronus_ui_calendar::render_spec_named(
+        &Spec {
+            year,
+            month,
+            months: 1,
+            selected: value,
+            range: None,
+            today: attr(comp, "today").and_then(parse_day),
+            fixed_weeks: false,
+        },
+        &radio_name,
+    );
     format!(
-        "<button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-picker-content\" role=\"dialog\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\">{calendar}</div>{hidden}"
+        "<button {attrs}>{ICON}<span>{label}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"date-picker-content\" role=\"dialog\" aria-label=\"{placeholder}\" anchor=\"{trigger_id}\">{calendar}</div>"
     )
 }
 
@@ -133,7 +130,6 @@ mod tests {
     fn reject_interact(html: &str) {
         assert!(!html.contains("type=\"date\""));
         assert!(!html.contains("date-picker-control"));
-        assert!(!html.contains("<label"));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -149,11 +145,12 @@ mod tests {
             "<button type=\"button\" id=\"cui-date-picker-trigger\" data-slot=\"date-picker-trigger\" data-variant=\"outline\" popovertarget=\"cui-date-picker-cal\" aria-haspopup=\"dialog\" data-empty=\"\">"
         ));
         assert!(!html.contains("data-slot=\"date-picker\""));
-        assert!(html.contains("<span>Due date</span></button><div id=\"cui-date-picker-cal\" popover=\"auto\" data-slot=\"date-picker-content\" role=\"dialog\" aria-label=\"Due date\" anchor=\"cui-date-picker-trigger\"><div data-slot=\"calendar\">"));
+        assert!(html.contains("<span>Due date</span></button><div id=\"cui-date-picker-cal\" popover=\"auto\" data-slot=\"date-picker-content\" role=\"dialog\" aria-label=\"Due date\" anchor=\"cui-date-picker-trigger\"><div data-slot=\"calendar\" data-month=\"2026-09\">"));
         assert!(html.contains(">September 2026</span>"));
         assert!(html.contains("<table role=\"grid\" aria-label=\"September 2026\">"));
         assert!(!html.contains("aria-selected"));
-        assert!(!html.contains("<input"));
+        assert!(html.contains("type=\"radio\""));
+        assert!(html.contains("name=\"cui-date-picker-value\""));
         assert!(html.ends_with("</table></div></div></div></div></div>"));
         reject_interact(&html);
     }
@@ -166,7 +163,7 @@ mod tests {
         assert!(html.contains("<span>September 13th, 2026</span></button>"));
         assert!(!html.contains("data-empty"));
         assert!(html.contains(">September 2026</span>"));
-        assert!(html.contains("<td role=\"gridcell\" aria-selected=\"true\"><button type=\"button\" disabled aria-label=\"Sunday, September 13th, 2026, selected\">13</button></td>"));
+        assert!(html.contains("<td role=\"gridcell\" aria-selected=\"true\"><label><input type=\"radio\" name=\"cui-date-picker-value\" value=\"2026-09-13\" checked><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Sunday, September 13th, 2026, selected\">13</button></label></td>"));
         reject_interact(&html);
     }
 
@@ -234,7 +231,8 @@ mod tests {
         let html = render(&c);
         assert!(html.contains(" disabled"));
         assert!(html.contains("aria-invalid=\"true\""));
-        assert!(html.ends_with("<input type=\"hidden\" name=\"due\" value=\"2026-01-02\">"));
+        assert!(html.contains("<input type=\"radio\" name=\"due\" value=\"2026-01-02\" checked>"));
+        assert!(!html.contains("type=\"hidden\""));
         assert!(html.contains("<span>January 2nd, 2026</span>"));
         reject_interact(&html);
     }

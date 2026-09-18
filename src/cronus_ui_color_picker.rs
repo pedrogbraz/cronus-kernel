@@ -14,15 +14,15 @@
 //!
 //! Zero JS: the trigger's `popovertarget` opens React's `color-picker-content`
 //! as a native `popover="auto"` anchored under it (Esc / outside click dismiss)
-//! with the `color-picker-value` readout and, when `item "…"` presets are given,
-//! a `color-picker-swatches` radiogroup of `color-picker-swatch-button` labels
-//! around visually hidden radios (`name:"…"` prop, else a widget id; the preset
-//! equal to the value is checked), each painted by the same validated SVG
-//! `fill` — so a preset submits with a form.
-//! Gaps: the saturation area, hue slider and L/C/H inputs need JS and are not
-//! rendered; picking a preset does not repaint the trigger swatch or text;
-//! `aria-expanded` is not reflected. A real `disabled` prop adds
-//! `data-disabled`, `disabled` and dims.
+//! with a saturation square (`color-picker-area` + overlay `color-picker-sat`
+//! range), a hue bar (overlay `color-picker-hue` range 0–360), the
+//! `color-picker-value` readout and, when `item "…"` presets are given, a
+//! `color-picker-swatches` radiogroup of `color-picker-swatch-button` labels
+//! (`data-color`) around visually hidden radios (`name:"…"` prop, else a widget
+//! id; the preset equal to the value is checked), each painted by the same
+//! validated SVG `fill` — so a preset submits with a form. A wrapper
+//! `data-slot="color-picker"` lets page runtime bind the ranges. A real
+//! `disabled` prop adds `data-disabled`, `disabled` and dims.
 //! Not interact `input("color-picker", "color")` as the only control.
 
 use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of, widget_id};
@@ -36,18 +36,21 @@ pub fn render(comp: &ComponentNode) -> String {
     let name = name_of(comp);
     let trigger_id = widget_id(comp, "trigger");
     let pop_id = widget_id(comp, "editor");
+    let disabled = flag(comp, "disabled");
     let mut btn = format!(
         "type=\"button\" id=\"{trigger_id}\" data-slot=\"color-picker-trigger\" data-variant=\"outline\" aria-label=\"{name}: {value}\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"{pop_id}\""
     );
-    if flag(comp, "disabled") {
+    if disabled {
         btn.push_str(" data-disabled=\"\" disabled");
     }
     let fill = safe_color(raw)
         .map(|c| fill_svg(&esc(c)))
         .unwrap_or_default();
-    let presets = presets_html(comp, raw);
+    let presets = presets_html(comp, raw, disabled);
+    let (hue, sat) = hue_sat_of(raw);
+    let range_off = if disabled { " disabled" } else { "" };
     format!(
-        "<button {btn}><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\" data-color=\"{value}\">{fill}</span><span>{value}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"color-picker-content\" role=\"dialog\" aria-label=\"{name}\" anchor=\"{trigger_id}\"><span data-slot=\"color-picker-value\">{value}</span>{presets}</div>"
+        "<div data-slot=\"color-picker\"><button {btn}><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\" data-color=\"{value}\">{fill}</span><span>{value}</span></button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"color-picker-content\" role=\"dialog\" aria-label=\"{name}\" anchor=\"{trigger_id}\"><div data-slot=\"color-picker-area\"><input type=\"range\" min=\"0\" max=\"100\" value=\"{sat}\" data-slot=\"color-picker-sat\" aria-label=\"Saturation\"{range_off}></div><div><input type=\"range\" min=\"0\" max=\"360\" value=\"{hue}\" data-slot=\"color-picker-hue\" aria-label=\"Hue\"{range_off}></div><span data-slot=\"color-picker-value\">{value}</span>{presets}</div></div>"
     )
 }
 
@@ -59,10 +62,11 @@ fn fill_svg(color: &str) -> String {
 }
 
 /// `item` / `preset` items with a safe color become radio swatches.
-fn presets_html(comp: &ComponentNode, raw_value: &str) -> String {
+fn presets_html(comp: &ComponentNode, raw_value: &str, disabled: bool) -> String {
     let group = attr_nonempty(comp, "name")
         .map(esc)
         .unwrap_or_else(|| widget_id(comp, "value"));
+    let radio_off = if disabled { " disabled" } else { "" };
     let swatches: String = comp
         .items
         .iter()
@@ -76,7 +80,7 @@ fn presets_html(comp: &ComponentNode, raw_value: &str) -> String {
                 ""
             };
             format!(
-                "<label data-slot=\"color-picker-swatch-button\" aria-label=\"{v}\"><input type=\"radio\" name=\"{group}\" value=\"{v}\"{checked}>{}</label>",
+                "<label data-slot=\"color-picker-swatch-button\" data-color=\"{v}\" aria-label=\"{v}\"><input type=\"radio\" name=\"{group}\" value=\"{v}\"{checked}{radio_off}>{}</label>",
                 fill_svg(&v)
             )
         })
@@ -137,6 +141,31 @@ fn raw_value(comp: &ComponentNode) -> &str {
     DEFAULT_VALUE
 }
 
+/// Hue 0..=360 and saturation 0..=100 for the overlay ranges.
+fn hue_sat_of(raw: &str) -> (u16, u8) {
+    let s = raw.trim();
+    let lower = s.to_ascii_lowercase();
+    let Some(body) = lower
+        .strip_prefix("oklch(")
+        .and_then(|r| r.strip_suffix(')'))
+    else {
+        return (0, 100);
+    };
+    let body = body.split('/').next().unwrap_or(body);
+    let parts: Vec<&str> = body
+        .split(|c: char| c.is_whitespace() || c == ',')
+        .filter(|p| !p.is_empty())
+        .collect();
+    if parts.len() < 3 {
+        return (0, 100);
+    }
+    let chroma: f64 = parts[1].trim_end_matches('%').parse().unwrap_or(0.0);
+    let hue: f64 = parts[2].parse().unwrap_or(0.0);
+    let sat = ((chroma / 0.37) * 100.0).clamp(0.0, 100.0).round() as u8;
+    let hue = ((hue % 360.0 + 360.0) % 360.0).round() as u16;
+    (hue, sat)
+}
+
 fn name_of(comp: &ComponentNode) -> String {
     if let Some(v) = attr_nonempty(comp, "aria-label") {
         return esc(v);
@@ -156,9 +185,7 @@ mod tests {
 
     fn reject_interact(html: &str) {
         assert!(!html.contains("color-picker-control"));
-        assert!(!html.contains("<label"));
         assert!(!html.contains("type=\"color\""));
-        assert!(!html.contains("<input"));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
@@ -172,8 +199,8 @@ mod tests {
         let c = stub("color-picker", "Accent");
         let html = render(&c);
         assert!(
-            !html.contains("data-slot=\"color-picker\""),
-            "React has no wrapper slot: {html}"
+            html.contains("data-slot=\"color-picker\""),
+            "wrapper for live hue/sat: {html}"
         );
         assert!(
             !html.contains("color-picker-swatch-button"),
@@ -185,12 +212,10 @@ mod tests {
         let trigger = format!(
             "<button type=\"button\" id=\"{tid}\" data-slot=\"color-picker-trigger\" data-variant=\"outline\" aria-label=\"Accent: oklch(0.62 0.21 256)\" aria-haspopup=\"dialog\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"{pid}\"><span aria-hidden=\"true\" data-slot=\"color-picker-swatch\" data-color=\"oklch(0.62 0.21 256)\"><svg aria-hidden=\"true\" focusable=\"false\" viewBox=\"0 0 1 1\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\" fill=\"oklch(0.62 0.21 256)\"></rect></svg></span><span>oklch(0.62 0.21 256)</span></button>"
         );
-        assert_eq!(
-            html,
-            format!(
-                "{trigger}<div id=\"{pid}\" popover=\"auto\" data-slot=\"color-picker-content\" role=\"dialog\" aria-label=\"Accent\" anchor=\"{tid}\"><span data-slot=\"color-picker-value\">oklch(0.62 0.21 256)</span></div>"
-            )
-        );
+        assert!(html.starts_with(&format!("<div data-slot=\"color-picker\">{trigger}")));
+        assert!(html.contains(&format!(
+            "<div id=\"{pid}\" popover=\"auto\" data-slot=\"color-picker-content\" role=\"dialog\" aria-label=\"Accent\" anchor=\"{tid}\"><div data-slot=\"color-picker-area\"><input type=\"range\" min=\"0\" max=\"100\" value=\"57\" data-slot=\"color-picker-sat\" aria-label=\"Saturation\"></div><div><input type=\"range\" min=\"0\" max=\"360\" value=\"256\" data-slot=\"color-picker-hue\" aria-label=\"Hue\"></div><span data-slot=\"color-picker-value\">oklch(0.62 0.21 256)</span></div></div>"
+        )));
         assert_eq!(
             trigger.matches("data-slot=").count(),
             2,
@@ -216,7 +241,7 @@ mod tests {
         let name = crate::cronus_ui_kit::widget_id(&c, "value");
         let swatch = |v: &str, checked: &str| {
             format!(
-                "<label data-slot=\"color-picker-swatch-button\" aria-label=\"{v}\"><input type=\"radio\" name=\"{name}\" value=\"{v}\"{checked}><svg aria-hidden=\"true\" focusable=\"false\" viewBox=\"0 0 1 1\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\" fill=\"{v}\"></rect></svg></label>"
+                "<label data-slot=\"color-picker-swatch-button\" data-color=\"{v}\" aria-label=\"{v}\"><input type=\"radio\" name=\"{name}\" value=\"{v}\"{checked}><svg aria-hidden=\"true\" focusable=\"false\" viewBox=\"0 0 1 1\" preserveAspectRatio=\"none\"><rect width=\"1\" height=\"1\" fill=\"{v}\"></rect></svg></label>"
             )
         };
         assert!(html.contains(&format!(
@@ -300,6 +325,8 @@ mod tests {
         c.props.insert("disabled".into(), "true".into());
         let html = render(&c);
         assert!(html.contains(" data-disabled=\"\" disabled>"));
+        assert!(html.contains("data-slot=\"color-picker-sat\" aria-label=\"Saturation\" disabled>"));
+        assert!(html.contains("data-slot=\"color-picker-hue\" aria-label=\"Hue\" disabled>"));
         reject_interact(&html);
     }
 
@@ -349,6 +376,9 @@ mod tests {
         );
         assert!(!css.contains("[data-slot=\"color-picker\"] {"));
         assert!(css.contains("[data-slot=\"color-picker-swatch-button\"] {"));
+        assert!(css.contains("[data-slot=\"color-picker-area\"]"));
+        assert!(css.contains("[data-slot=\"color-picker-sat\"]"));
+        assert!(css.contains("[data-slot=\"color-picker-hue\"]"));
     }
 
     /// The portable SVG fills the tile's padding box and is clipped to its radius.

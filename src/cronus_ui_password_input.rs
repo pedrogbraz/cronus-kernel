@@ -5,9 +5,8 @@
 //! absolute `<button data-slot="password-input-toggle" aria-pressed="false">`
 //! with lucide eye.
 //!
-//! The field is a native, editable password input. Revealing the value needs
-//! JS, so the toggle is the same native button with `disabled` and React's idle
-//! look (not dimmed). Not reproduced: reveal toggle, strength meter.
+//! The field is a native, editable password input. The eye toggle stays enabled
+//! unless the field is disabled; page runtime flips `type` password/text.
 //!
 //! Props: placeholder = `placeholder` prop / `text` item / label,
 //! `disabled`, `invalid`.
@@ -57,8 +56,9 @@ pub fn render(comp: &ComponentNode) -> String {
     let value = attr_nonempty(comp, "value")
         .map(|v| format!(" value=\"{}\"", esc(v)))
         .unwrap_or_default();
+    let toggle_dis = if disabled { " disabled" } else { "" };
     format!(
-        "<div data-slot=\"password-input\"><div><input {field}{value}><button type=\"button\" data-slot=\"password-input-toggle\" aria-label=\"Show password\" aria-pressed=\"false\" disabled>{EYE}</button></div>{strength}</div>"
+        "<div data-slot=\"password-input\"><div><input {field}{value}><button type=\"button\" data-slot=\"password-input-toggle\" aria-label=\"Show password\" aria-pressed=\"false\"{toggle_dis}>{EYE}</button></div>{strength}</div>"
     )
 }
 
@@ -100,7 +100,7 @@ mod tests {
         assert_eq!(
             render(&stub("password-input", "Enter your password")),
             format!(
-                "<div data-slot=\"password-input\"><div><input data-slot=\"input\" type=\"password\" placeholder=\"Enter your password\" autocomplete=\"current-password\"><button type=\"button\" data-slot=\"password-input-toggle\" aria-label=\"Show password\" aria-pressed=\"false\" disabled>{EYE}</button></div></div>"
+                "<div data-slot=\"password-input\"><div><input data-slot=\"input\" type=\"password\" placeholder=\"Enter your password\" autocomplete=\"current-password\"><button type=\"button\" data-slot=\"password-input-toggle\" aria-label=\"Show password\" aria-pressed=\"false\">{EYE}</button></div></div>"
             )
         );
     }
@@ -112,9 +112,19 @@ mod tests {
         c.props.insert("invalid".into(), "true".into());
         let html = render(&c);
         assert!(html.contains("placeholder=\"&quot;&gt;&lt;b&gt;\" autocomplete=\"current-password\" disabled aria-invalid=\"true\">"));
+        assert!(html.contains("aria-pressed=\"false\" disabled>"));
         for bad in ["<b>", "v-model", "style=", "<label"] {
             assert!(!html.contains(bad), "{bad}");
         }
+    }
+
+    #[test]
+    fn toggle_stays_enabled_when_field_is_enabled() {
+        let html = render(&stub("password-input", "Enter your password"));
+        assert!(html.contains("data-slot=\"password-input-toggle\""));
+        assert!(!html.contains(
+            "password-input-toggle\" aria-label=\"Show password\" aria-pressed=\"false\" disabled"
+        ));
     }
 
     #[test]

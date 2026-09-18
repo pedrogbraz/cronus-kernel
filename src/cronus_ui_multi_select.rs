@@ -8,11 +8,13 @@
 //! content sits absolutely 4px below the trigger, like the Radix popper.
 //! React always renders cmdk's search row (`command-input-wrapper` > search
 //! icon + `command-input`, placeholder `searchPlaceholder`, default "Search…")
-//! above the list. Filtering needs JS, so the input is the native control
-//! rendered `disabled` with React's idle look.
+//! above the list. The search field is a live native input (disabled only when
+//! the root is). Each option is a `<label data-slot="command-item">` around a
+//! hidden checkbox `name="{widget_id}-opt"` so picking is native; page runtime
+//! filters the list and paints the trigger from `:checked`.
 //! Not interact `select("multi-select")` native `<select multiple>`.
 
-use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item, texts};
+use crate::cronus_ui_kit::{attr_nonempty, choice_texts, esc, flag, item, texts, widget_id};
 use crate::parser::ComponentNode;
 
 const CHEVRON: &str = concat!(
@@ -43,13 +45,19 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         selected.join(", ")
     };
+    let name = widget_id(comp, "opt");
+    let opt_disabled = if flag(comp, "disabled") {
+        " disabled"
+    } else {
+        ""
+    };
     let items = options
         .iter()
         .enumerate()
         .map(|(i, t)| {
             let on = selected.iter().any(|s| s == t);
-            let (aria, state, mark) = if on {
-                ("true", "checked", CHECK)
+            let (aria, state, checked) = if on {
+                ("true", "checked", " checked")
             } else {
                 ("false", "unchecked", "")
             };
@@ -57,7 +65,7 @@ pub fn render(comp: &ComponentNode) -> String {
             // the highlight to the hovered row, so no JS is needed.
             let highlighted = if i == 0 { " data-selected=\"true\"" } else { "" };
             format!(
-                "<div data-slot=\"command-item\" role=\"option\" aria-selected=\"{aria}\"{highlighted}><span data-slot=\"multi-select-indicator\" data-state=\"{state}\" aria-hidden=\"true\">{mark}</span><span>{t}</span></div>"
+                "<label data-slot=\"command-item\" role=\"option\" aria-selected=\"{aria}\"{highlighted}><input type=\"checkbox\" name=\"{name}\" value=\"{t}\" hidden{checked}{opt_disabled} /><span data-slot=\"multi-select-indicator\" data-state=\"{state}\" aria-hidden=\"true\">{CHECK}</span><span>{t}</span></label>"
             )
         })
         .collect::<Vec<_>>()
@@ -85,14 +93,19 @@ pub fn render(comp: &ComponentNode) -> String {
     )
 }
 
-/// cmdk `CommandInput`: icon + native text input, `disabled` (filtering needs JS).
+/// cmdk `CommandInput`: icon + live native text input (page runtime filters).
 fn search_row(comp: &ComponentNode) -> String {
     let placeholder = attr_nonempty(comp, "searchPlaceholder")
         .or_else(|| attr_nonempty(comp, "search-placeholder"))
         .map(esc)
         .unwrap_or_else(|| "Search…".into());
+    let disabled = if flag(comp, "disabled") {
+        " disabled"
+    } else {
+        ""
+    };
     format!(
-        "<div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" type=\"text\" placeholder=\"{placeholder}\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div>"
+        "<div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" type=\"text\" placeholder=\"{placeholder}\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\"{disabled} /></div>"
     )
 }
 
@@ -186,11 +199,14 @@ mod tests {
     }
 
     fn opt(t: &str, on: bool) -> String {
-        if on {
-            format!("<div data-slot=\"command-item\" role=\"option\" aria-selected=\"true\"><span data-slot=\"multi-select-indicator\" data-state=\"checked\" aria-hidden=\"true\">{CHECK}</span><span>{t}</span></div>")
+        let (aria, state, checked) = if on {
+            ("true", "checked", " checked")
         } else {
-            format!("<div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\"><span data-slot=\"multi-select-indicator\" data-state=\"unchecked\" aria-hidden=\"true\"></span><span>{t}</span></div>")
-        }
+            ("false", "unchecked", "")
+        };
+        format!(
+            "<label data-slot=\"command-item\" role=\"option\" aria-selected=\"{aria}\"><input type=\"checkbox\" name=\"cui-multi-select-opt\" value=\"{t}\" hidden{checked} /><span data-slot=\"multi-select-indicator\" data-state=\"{state}\" aria-hidden=\"true\">{CHECK}</span><span>{t}</span></label>"
+        )
     }
 
     /// First row: cmdk's initial keyboard highlight (`data-selected="true"`).
@@ -215,17 +231,12 @@ mod tests {
         assert!(!html.contains("</select>"));
         assert!(!html.contains(" multiple"));
         assert!(!html.contains("-control"));
-        assert!(!html.contains("<label"));
         assert!(!html.contains("<button"));
-        // The only input is cmdk's search field, always native + disabled.
         assert_eq!(
             html.matches("<input").count(),
             html.matches("<input data-slot=\"command-input\" type=\"text\"")
                 .count()
-        );
-        assert_eq!(
-            html.matches("<input").count(),
-            html.matches("spellcheck=\"false\" disabled />").count()
+                + html.matches("type=\"checkbox\"").count()
         );
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
@@ -236,14 +247,14 @@ mod tests {
 
     /// React (defaultOpen): div combobox trigger + portal
     /// `popover-content > command > command-list > command-item`. Options are
-    /// divs with an indicator box, never buttons (wave1s geometry parity).
+    /// labels around hidden checkboxes, never a native `<select multiple>`.
     #[test]
     fn trigger_is_div_combobox_and_list_is_open() {
         let html = render(&multi("Pick", &["Ada", "Grace"]));
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"multi-select\">{TRIGGER_OPEN}{}<span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" type=\"text\" placeholder=\"Search…\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{}{}</div></div></div></div>",
+                "<div data-slot=\"multi-select\">{TRIGGER_OPEN}{}<span aria-hidden=\"true\">{CHEVRON}</span></div><div data-slot=\"popover-content\" role=\"dialog\" data-state=\"open\"><div data-slot=\"command\"><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" type=\"text\" placeholder=\"Search…\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" /></div><div data-slot=\"command-list\" role=\"listbox\" aria-multiselectable=\"true\">{}{}</div></div></div></div>",
                 trig("Pick"),
                 first("Ada", false),
                 opt("Grace", false)
@@ -255,9 +266,9 @@ mod tests {
     }
 
     /// Pixel parity (multi-select/default): React's open content starts with
-    /// cmdk's search row before the options; the kernel used to omit it.
+    /// cmdk's search row before the options; the field is typable.
     #[test]
-    fn content_has_disabled_search_row_before_list() {
+    fn content_has_live_search_row_before_list() {
         let html = render(&multi("Pick", &["Ada"]));
         let row = html
             .find("<div data-slot=\"command-input-wrapper\">")
@@ -265,6 +276,14 @@ mod tests {
         let list = html.find("data-slot=\"command-list\"").unwrap();
         assert!(row < list, "{html}");
         assert!(html.contains("placeholder=\"Search…\""));
+        let start = html
+            .find("data-slot=\"command-input\"")
+            .expect("command-input");
+        let tag = &html[start..start + html[start..].find('>').unwrap()];
+        assert!(
+            !tag.contains("disabled"),
+            "search field must be typable: {tag}"
+        );
         let mut c = multi("Pick", &["Ada"]);
         c.props
             .insert("searchPlaceholder".into(), "Find \"x\"".into());
@@ -348,6 +367,17 @@ mod tests {
         let html = render(&c);
         assert!(html.contains("role=\"combobox\" tabindex=\"-1\" aria-disabled=\"true\""));
         assert!(!html.contains("tabindex=\"0\""));
+        let start = html
+            .find("data-slot=\"command-input\"")
+            .expect("command-input");
+        let tag = &html[start..start + html[start..].find('>').unwrap()];
+        assert!(
+            tag.contains("disabled"),
+            "search follows root disabled: {tag}"
+        );
+        assert!(html.contains(
+            "type=\"checkbox\" name=\"cui-multi-select-opt\" value=\"Ada\" hidden disabled"
+        ));
         reject_interact(&html);
     }
 

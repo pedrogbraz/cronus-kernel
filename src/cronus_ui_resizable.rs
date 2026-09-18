@@ -1,10 +1,10 @@
-//! Dedicated Resizable renderer. Static two-panel split, no JS drag.
+//! Dedicated Resizable renderer. Two-panel split; page runtime pointer-drags.
 //! DOM matches React `ResizablePanelGroup` (react-resizable-panels):
 //! `<div data-slot="resizable-panel-group" data-panel-group-direction aria-label>`
 //! with two `<div data-panel data-panel-size="50.0">` panels (React panels carry no
-//! data-slot) around `<div data-slot="resizable-handle" role="separator">`.
-//! The handle is not focusable: without JS it cannot resize, so it only separates.
-//! The `label` names the group; it is never a panel.
+//! data-slot) around `<div data-slot="resizable-handle" role="separator" tabindex="0">`.
+//! Handles are focusable separators (`aria-orientation`, `data-resize-dir`) so
+//! live.js can pointer-drag. The `label` names the group; it is never a panel.
 //! Docs three-pane layout: `item "Sidebar" size:35` sets a panel's share
 //! (`data-panel-size`, painted by per-value CSS rules), consecutive
 //! `vertical:true` items form a nested vertical group in one panel (sized to
@@ -31,7 +31,8 @@ pub fn render(comp: &ComponentNode) -> String {
     if rich.is_empty() {
         let (left, right) = panels(comp);
         return format!(
-            "<div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"horizontal\"{aria}><div data-panel=\"\" data-panel-size=\"50.0\">{left}</div><div data-slot=\"resizable-handle\" role=\"separator\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"horizontal\"></div><div data-panel=\"\" data-panel-size=\"50.0\">{right}</div></div>"
+            "<div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"horizontal\"{aria}><div data-panel=\"\" data-panel-size=\"50.0\">{left}</div>{}<div data-panel=\"\" data-panel-size=\"50.0\">{right}</div></div>",
+            handle_html("horizontal", 50, "")
         );
     }
     let with_handle = flag(comp, "handle");
@@ -121,16 +122,19 @@ fn group_body(direction: &str, panels: &[(Option<u32>, String)], with_handle: bo
         .enumerate()
         .map(|(n, ((_, inner), size))| {
             let handle = if n > 0 {
-                format!(
-                    "<div data-slot=\"resizable-handle\" role=\"separator\" aria-valuenow=\"{}\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"{direction}\">{grip}</div>",
-                    sizes[..n].iter().sum::<u32>()
-                )
+                handle_html(direction, sizes[..n].iter().sum::<u32>(), &grip)
             } else {
                 String::new()
             };
             format!("{handle}<div data-panel=\"\" data-panel-size=\"{size}.0\">{inner}</div>")
         })
         .collect()
+}
+
+fn handle_html(direction: &str, now: u32, grip: &str) -> String {
+    format!(
+        "<div data-slot=\"resizable-handle\" role=\"separator\" tabindex=\"0\" aria-orientation=\"{direction}\" aria-valuenow=\"{now}\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"{direction}\" data-resize-dir=\"{direction}\">{grip}</div>"
+    )
 }
 
 fn group_html(
@@ -182,7 +186,6 @@ mod tests {
         assert!(!html.contains("onclick="));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("tabindex"));
         assert!(!html.contains("max-height:12rem;overflow:auto"));
         assert!(html.contains("data-slot=\"resizable-panel-group\""));
         assert!(html.contains("data-slot=\"resizable-handle\""));
@@ -199,7 +202,7 @@ mod tests {
         let html = render(&c);
         assert_eq!(
             html,
-            "<div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"horizontal\" aria-label=\"Panels\"><div data-panel=\"\" data-panel-size=\"50.0\">One</div><div data-slot=\"resizable-handle\" role=\"separator\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"horizontal\"></div><div data-panel=\"\" data-panel-size=\"50.0\">Two</div></div>"
+            "<div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"horizontal\" aria-label=\"Panels\"><div data-panel=\"\" data-panel-size=\"50.0\">One</div><div data-slot=\"resizable-handle\" role=\"separator\" tabindex=\"0\" aria-orientation=\"horizontal\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"horizontal\" data-resize-dir=\"horizontal\"></div><div data-panel=\"\" data-panel-size=\"50.0\">Two</div></div>"
         );
         assert!(!html.contains("data-slot=\"resizable\""));
         reject_interact(&html);
@@ -251,7 +254,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"horizontal\" class=\"h-48 bordered\"><div data-panel=\"\" data-panel-size=\"35.0\"><div>Sidebar</div></div><div data-slot=\"resizable-handle\" role=\"separator\" aria-valuenow=\"35\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"horizontal\"><div data-slot=\"resizable-handle-grip\" aria-hidden=\"true\">{GRIP}</div></div><div data-panel=\"\" data-panel-size=\"65.0\"><div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"vertical\"><div data-panel=\"\" data-panel-size=\"60.0\"><div>Content</div></div><div data-slot=\"resizable-handle\" role=\"separator\" aria-valuenow=\"60\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"vertical\"></div><div data-panel=\"\" data-panel-size=\"40.0\"><div>Console</div></div></div></div></div>"
+                "<div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"horizontal\" class=\"h-48 bordered\"><div data-panel=\"\" data-panel-size=\"35.0\"><div>Sidebar</div></div><div data-slot=\"resizable-handle\" role=\"separator\" tabindex=\"0\" aria-orientation=\"horizontal\" aria-valuenow=\"35\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"horizontal\" data-resize-dir=\"horizontal\"><div data-slot=\"resizable-handle-grip\" aria-hidden=\"true\">{GRIP}</div></div><div data-panel=\"\" data-panel-size=\"65.0\"><div data-slot=\"resizable-panel-group\" data-panel-group-direction=\"vertical\"><div data-panel=\"\" data-panel-size=\"60.0\"><div>Content</div></div><div data-slot=\"resizable-handle\" role=\"separator\" tabindex=\"0\" aria-orientation=\"vertical\" aria-valuenow=\"60\" aria-valuemin=\"0\" aria-valuemax=\"100\" data-panel-group-direction=\"vertical\" data-resize-dir=\"vertical\"></div><div data-panel=\"\" data-panel-size=\"40.0\"><div>Console</div></div></div></div></div>"
             )
         );
         reject_interact(&html);
@@ -271,6 +274,20 @@ mod tests {
         assert!(css.contains("flex: 50 1 0px; overflow: hidden;"));
         assert!(css.contains("[data-slot=\"resizable-handle\"]::after"));
         assert!(css.contains("var(--cronus-border)"));
+        assert!(css.contains("cursor: col-resize"));
+        assert!(css.contains("cursor: row-resize"));
         assert!(!css.contains("zinc-"));
+    }
+
+    #[test]
+    fn handles_are_focusable_separators_with_resize_dir() {
+        let html = render(&stub("resizable", "Sidebar"));
+        assert!(html.contains("data-slot=\"resizable-handle\""));
+        assert!(html.contains("role=\"separator\""));
+        assert!(html.contains("tabindex=\"0\""));
+        assert!(html.contains("aria-orientation=\"horizontal\""));
+        assert!(html.contains("data-resize-dir=\"horizontal\""));
+        assert!(!html.contains("disabled"));
+        reject_interact(&html);
     }
 }

@@ -5,11 +5,12 @@
 //! formatted for the currency locale (`12345` BRL → `123,45`).
 //! A single currency (`currencies:"EUR"` or `prefix:`) renders React's static
 //! `<span data-slot="currency-input-prefix">` instead of the selector.
-//! The selector menu is a Radix dropdown (JS); the kernel renders the closed
-//! trigger as a native `disabled` button with React's idle look (not dimmed).
+//! Zero JS: the selector's `popovertarget` opens a native `popover="auto"`
+//! holding one `<label data-slot="currency-input-item">` per currency around a
+//! visually hidden radio (like Select). The tel/amount field stays editable.
 //! Not interact `input("currency-input", "number")` (`<label>` + `*-control` + CTRL).
 
-use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of, widget_id};
 use crate::parser::ComponentNode;
 
 struct Currency {
@@ -85,10 +86,30 @@ pub fn render(comp: &ComponentNode) -> String {
     let lead = if single_currency(comp) {
         format!("<span data-slot=\"currency-input-prefix\" aria-hidden=\"true\">{face}</span>")
     } else {
-        // The currency menu needs JS: same native trigger as React, `disabled`,
-        // idle look kept (only `data-disabled` on the root dims).
+        let trigger_id = widget_id(comp, "selector");
+        let pop_id = widget_id(comp, "listbox");
+        let name = widget_id(comp, "currency");
+        let disabled_attr = if disabled { " disabled" } else { "" };
+        let items: String = currencies_of(comp)
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let checked = if c.code == currency.code {
+                    " checked"
+                } else {
+                    ""
+                };
+                format!(
+                    "<label data-slot=\"currency-input-item\" data-option=\"{}\"><input type=\"radio\" name=\"{name}\" value=\"{}\"{checked}><span>{}</span><span>{}</span></label>",
+                    i + 1,
+                    c.code,
+                    c.symbol,
+                    c.code
+                )
+            })
+            .collect();
         format!(
-            "<button type=\"button\" disabled aria-label=\"Select currency\" data-slot=\"currency-input-selector\" aria-haspopup=\"menu\" aria-expanded=\"false\" data-state=\"closed\">{face}{CHEVRON_DOWN}</button>"
+            "<button type=\"button\" id=\"{trigger_id}\" aria-label=\"Select currency\" data-slot=\"currency-input-selector\" aria-haspopup=\"listbox\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"{pop_id}\" aria-controls=\"{pop_id}\"{disabled_attr}>{face}{CHEVRON_DOWN}</button><div id=\"{pop_id}\" popover=\"auto\" data-slot=\"currency-input-content\" role=\"radiogroup\" aria-label=\"Select currency\" anchor=\"{trigger_id}\">{items}</div>"
         )
     };
 
@@ -125,6 +146,24 @@ fn currency_of(comp: &ComponentNode) -> &'static Currency {
         .iter()
         .find(|c| c.code == code)
         .unwrap_or(&CURRENCIES[0])
+}
+
+fn currencies_of(comp: &ComponentNode) -> Vec<&'static Currency> {
+    let Some(raw) = attr(comp, "currencies") else {
+        return CURRENCIES.iter().collect();
+    };
+    let listed: Vec<&'static Currency> = raw
+        .split(',')
+        .filter_map(|c| {
+            let code = c.trim().to_ascii_uppercase();
+            CURRENCIES.iter().find(|x| x.code == code)
+        })
+        .collect();
+    if listed.is_empty() {
+        CURRENCIES.iter().collect()
+    } else {
+        listed
+    }
 }
 
 /// React renders the static prefix when the currency list has one entry.
@@ -199,7 +238,7 @@ mod tests {
 
     fn reject_interact(html: &str) {
         assert!(!html.contains("currency-input-control"));
-        assert!(!html.contains("<label"));
+        assert!(!html.contains("<label data-slot=\"currency-input\""));
         assert!(!html.contains("type=\"number\""));
         assert!(!html.contains("style="));
         assert!(!html.contains("v-data="));
@@ -215,9 +254,16 @@ mod tests {
         assert!(html.starts_with("<div data-slot=\"currency-input\">"));
         assert!(!html.contains("currency-input-prefix"));
         reject_interact(&html);
+        assert!(html.contains("popovertarget=\"cui-currency-input-listbox\""));
+        assert!(!html.contains(" data-slot=\"currency-input-selector\" aria-haspopup=\"listbox\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"cui-currency-input-listbox\" aria-controls=\"cui-currency-input-listbox\" disabled"));
+        assert!(html.contains(
+            "<input type=\"radio\" name=\"cui-currency-input-currency\" value=\"BRL\" checked>"
+        ));
+        assert!(html.contains("value=\"USD\""));
+        assert!(html.contains("data-slot=\"currency-input-content\""));
         assert_eq!(
             html,
-            format!("<div data-slot=\"currency-input\"><button type=\"button\" disabled aria-label=\"Select currency\" data-slot=\"currency-input-selector\" aria-haspopup=\"menu\" aria-expanded=\"false\" data-state=\"closed\"><span>R$</span><span>BRL</span>{CHEVRON_DOWN}</button><input type=\"text\" inputmode=\"decimal\" autocomplete=\"off\" autocorrect=\"off\" spellcheck=\"false\" placeholder=\"0,00\" aria-label=\"Amount\" data-slot=\"currency-input-field\" /></div>")
+            format!("<div data-slot=\"currency-input\"><button type=\"button\" id=\"cui-currency-input-selector\" aria-label=\"Select currency\" data-slot=\"currency-input-selector\" aria-haspopup=\"listbox\" aria-expanded=\"false\" data-state=\"closed\" popovertarget=\"cui-currency-input-listbox\" aria-controls=\"cui-currency-input-listbox\"><span>R$</span><span>BRL</span>{CHEVRON_DOWN}</button><div id=\"cui-currency-input-listbox\" popover=\"auto\" data-slot=\"currency-input-content\" role=\"radiogroup\" aria-label=\"Select currency\" anchor=\"cui-currency-input-selector\"><label data-slot=\"currency-input-item\" data-option=\"1\"><input type=\"radio\" name=\"cui-currency-input-currency\" value=\"BRL\" checked><span>R$</span><span>BRL</span></label><label data-slot=\"currency-input-item\" data-option=\"2\"><input type=\"radio\" name=\"cui-currency-input-currency\" value=\"USD\"><span>US$</span><span>USD</span></label><label data-slot=\"currency-input-item\" data-option=\"3\"><input type=\"radio\" name=\"cui-currency-input-currency\" value=\"EUR\"><span>€</span><span>EUR</span></label><label data-slot=\"currency-input-item\" data-option=\"4\"><input type=\"radio\" name=\"cui-currency-input-currency\" value=\"GBP\"><span>£</span><span>GBP</span></label><label data-slot=\"currency-input-item\" data-option=\"5\"><input type=\"radio\" name=\"cui-currency-input-currency\" value=\"JPY\"><span>¥</span><span>JPY</span></label></div><input type=\"text\" inputmode=\"decimal\" autocomplete=\"off\" autocorrect=\"off\" spellcheck=\"false\" placeholder=\"0,00\" aria-label=\"Amount\" data-slot=\"currency-input-field\" /></div>")
         );
     }
 
@@ -269,7 +315,7 @@ mod tests {
         let html = render(&c);
         assert!(html.contains(" data-disabled=\"\""));
         assert!(html.contains(" data-invalid=\"\""));
-        assert!(html.contains("<button type=\"button\" disabled"));
+        assert!(html.contains("aria-controls=\"cui-currency-input-listbox\" disabled>"));
         assert!(html.contains("aria-invalid=\"true\""));
         reject_interact(&html);
     }
@@ -279,7 +325,7 @@ mod tests {
         let c = stub("currency-input", "Amount");
         let html = render(&c);
         assert!(!html.contains("currency-input-control"));
-        assert!(!html.contains("<label"));
+        assert!(!html.contains("<label data-slot=\"currency-input\""));
         assert!(!html.contains("type=\"number\""));
         reject_interact(&html);
     }
@@ -298,6 +344,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"currency-input\"]"));
         assert!(css.contains("[data-slot=\"currency-input-prefix\"]"));
         assert!(css.contains("[data-slot=\"currency-input-selector\"]"));
+        assert!(css.contains("[data-slot=\"currency-input-content\"]:popover-open"));
+        assert!(css.contains("[data-slot=\"currency-input-item\"]"));
         assert!(css.contains("[data-slot=\"currency-input-field\"]"));
         assert!(css.contains("var(--cronus-surface-inset)"));
         assert!(css.contains("var(--cronus-border)"));

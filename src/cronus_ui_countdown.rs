@@ -1,15 +1,17 @@
 //! Dedicated Countdown renderer. DOM matches React's settled render:
-//! `<div data-slot="countdown" role="timer" aria-live="off">` + visually
-//! hidden summary `<span class="sr-only">2 days, 14 hours, 25 min, 9 sec</span>`
+//! `<div data-slot="countdown" role="timer" aria-live="off" data-remain="N">`
+//! + visually hidden summary `<span class="sr-only">2 days, 14 hours, 25 min, 9 sec</span>`
 //! + four `countdown-unit` tiles, each a `countdown-value` (with the inner
 //! keyed `<span>` React transitions in from `@starting-style`) over a
-//! `countdown-label` caption. The kernel has no clock, so the tiles are static:
-//! `value:"D:HH:MM:SS"` / `"HH:MM:SS"` / `"MM:SS"` (a `text` item or `target:`
-//! in the same shape also works) or up to four numeric items, right-aligned to
-//! seconds; anything else reads `00`. `compact:true` is React's `compact`
-//! (`data-compact`, smaller tiles and type). Captions localize with
-//! `days:"dias" hours:"horas" minutes:"min" seconds:"seg"` (React `labels`).
-//! `aria-label:"…"` names the timer. Zero JS timer. CSS in `countdown.css`.
+//! `countdown-label` caption. Tiles are static at render; `data-remain` is
+//! total seconds (`days*86400 + hours*3600 + minutes*60 + seconds`) so the
+//! page runtime can tick. `value:"D:HH:MM:SS"` / `"HH:MM:SS"` / `"MM:SS"`
+//! (a `text` item or `target:` in the same shape also works) or up to four
+//! numeric items, right-aligned to seconds; anything else reads `00`.
+//! `compact:true` is React's `compact` (`data-compact`, smaller tiles and
+//! type). Captions localize with `days:"dias" hours:"horas" minutes:"min"
+//! seconds:"seg"` (React `labels`). `aria-label:"…"` names the timer.
+//! Zero JS in the renderer. CSS in `countdown.css`.
 
 use crate::cronus_ui_kit::{attr_nonempty, esc, flag, numeric_items};
 use crate::parser::ComponentNode;
@@ -44,6 +46,11 @@ pub fn render(comp: &ComponentNode) -> String {
         })
         .collect::<Vec<_>>()
         .join("");
+    let remain: u64 = values
+        .iter()
+        .zip([86400u64, 3600, 60, 1])
+        .map(|(v, w)| v.parse::<u64>().unwrap_or(0).saturating_mul(w))
+        .fold(0u64, u64::saturating_add);
     let mut attrs = String::from("data-slot=\"countdown\" role=\"timer\" aria-live=\"off\"");
     if let Some(aria) = attr_nonempty(comp, "aria-label") {
         attrs.push_str(&format!(" aria-label=\"{}\"", esc(aria)));
@@ -51,6 +58,7 @@ pub fn render(comp: &ComponentNode) -> String {
     if flag(comp, "compact") {
         attrs.push_str(" data-compact=\"\"");
     }
+    attrs.push_str(&format!(" data-remain=\"{remain}\""));
     format!("<div {attrs}><span class=\"sr-only\">{summary}</span>{units}</div>")
 }
 
@@ -164,7 +172,9 @@ mod tests {
     #[test]
     fn root_is_timer_with_four_static_units_not_fx_title_box() {
         let html = render(&stub("countdown", "Demo"));
-        assert!(html.starts_with("<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\">"));
+        assert!(html.starts_with(
+            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" data-remain=\"0\">"
+        ));
         assert_eq!(html.matches("data-slot=\"countdown-unit\"").count(), 4);
         assert_eq!(html.matches("data-slot=\"countdown-value\"").count(), 4);
         assert_eq!(html.matches("data-slot=\"countdown-label\"").count(), 4);
@@ -185,7 +195,7 @@ mod tests {
     fn sr_only_summary_precedes_tiles() {
         let html = render(&stub("countdown", "Launch"));
         assert!(html.starts_with(
-            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\"><span class=\"sr-only\">0 days, 0 hours, 0 min, 0 sec</span><div data-slot=\"countdown-unit\" data-unit=\"days\""
+            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" data-remain=\"0\"><span class=\"sr-only\">0 days, 0 hours, 0 min, 0 sec</span><div data-slot=\"countdown-unit\" data-unit=\"days\""
         ));
         assert!(!html.contains("Launch"));
         reject_fx(&html);
@@ -240,11 +250,23 @@ mod tests {
         c.props
             .insert("aria-label".into(), "Launch countdown".into());
         let html = render(&c);
-        assert!(html.starts_with("<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" aria-label=\"Launch countdown\"><span class=\"sr-only\">2 days, 14 hours, 25 min, 9 sec</span>"));
+        assert!(html.starts_with("<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" aria-label=\"Launch countdown\" data-remain=\"224709\"><span class=\"sr-only\">2 days, 14 hours, 25 min, 9 sec</span>"));
         assert!(unit(&html, "days").contains("><span>02</span>"));
         assert!(unit(&html, "hours").contains("><span>14</span>"));
         assert!(unit(&html, "minutes").contains("><span>25</span>"));
         assert!(unit(&html, "seconds").contains("><span>09</span>"));
+        reject_fx(&html);
+    }
+
+    #[test]
+    fn clock_value_emits_data_remain_total_seconds() {
+        let mut c = stub("countdown", "Launch");
+        c.props.insert("value".into(), "2:14:25:09".into());
+        let html = render(&c);
+        assert!(html.contains(" data-remain=\"224709\""));
+        assert!(html.starts_with(
+            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" data-remain=\"224709\">"
+        ));
         reject_fx(&html);
     }
 
@@ -258,7 +280,7 @@ mod tests {
         c.props.insert("seconds".into(), "seg".into());
         let html = render(&c);
         assert!(html.starts_with(
-            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" data-compact=\"\"><span class=\"sr-only\">0 dias, 0 hours, 0 min, 15 seg</span>"
+            "<div data-slot=\"countdown\" role=\"timer\" aria-live=\"off\" data-compact=\"\" data-remain=\"15\"><span class=\"sr-only\">0 dias, 0 hours, 0 min, 15 seg</span>"
         ));
         assert!(html.contains("<span data-slot=\"countdown-label\">dias</span>"));
         assert!(html.contains("<span data-slot=\"countdown-label\">seg</span>"));

@@ -1,16 +1,16 @@
 //! Dedicated ComparisonSlider renderer. DOM matches React idle:
-//! `<div data-slot="comparison-slider">` > `comparison-after` and
-//! `comparison-before` layers, then the `aria-hidden` divider and the round
-//! `role="slider"` handle at 50%. Two layer sources: `text` items render the
-//! audit fixture's centered `<div>` (text-sm, surface-raised / surface-overlay);
-//! the `before:"…"` / `after:"…"` props render the docs' labelled panels — a
-//! pill `<span>` on a surface-inset (before) / primary (after) panel (class
-//! `panels` on the root). `height:64` is the docs' `h-64` (class `h-64`).
-//! Dragging and arrow keys need JS, so the handle keeps React's element and
-//! ARIA value but is `aria-disabled="true"` and not focusable (a `<div>` has no
-//! `disabled`); it is not dimmed because React does not dim it at idle. The
-//! label is the handle's accessible name, never a layer text. Not the catalog
-//! `fx()` SURF title box.
+//! `<div data-slot="comparison-slider" data-value="50">` > overlay
+//! `<input type="range" data-slot="comparison-slider-range">`, then
+//! `comparison-after` / `comparison-before` layers, the `aria-hidden` divider
+//! and the round decorative `role="slider"` handle at 50%. Two layer sources:
+//! `text` items render the audit fixture's centered `<div>` (text-sm,
+//! surface-raised / surface-overlay); the `before:"…"` / `after:"…"` props
+//! render the docs' labelled panels — a pill `<span>` on a surface-inset
+//! (before) / primary (after) panel (class `panels` on the root). `height:64`
+//! is the docs' `h-64` (class `h-64`). The native range is visually hidden and
+//! covers the widget; page runtime writes `--cmp` / `data-value`. The handle
+//! stays decorative (`pointer-events: none`). The label names the range, never
+//! a layer text. Not the catalog `fx()` SURF title box.
 
 use crate::cronus_ui_kit::{attr_nonempty, esc, item, label_of};
 use crate::parser::ComponentNode;
@@ -44,7 +44,7 @@ pub fn render(comp: &ComponentNode) -> String {
         format!(" class=\"{}\"", classes.join(" "))
     };
     format!(
-        "<div data-slot=\"comparison-slider\"{class}><div data-slot=\"comparison-after\"><div>{after}</div></div><div data-slot=\"comparison-before\"><div>{before}</div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-label=\"{label}\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-orientation=\"horizontal\" aria-disabled=\"true\">{CHEVRONS_SVG}</div></div>"
+        "<div data-slot=\"comparison-slider\" data-value=\"50\"{class}><input type=\"range\" min=\"0\" max=\"100\" value=\"50\" aria-label=\"{label}\" tabindex=\"0\" data-slot=\"comparison-slider-range\"><div data-slot=\"comparison-after\"><div>{after}</div></div><div data-slot=\"comparison-before\"><div>{before}</div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-orientation=\"horizontal\">{CHEVRONS_SVG}</div></div>"
     )
 }
 
@@ -97,23 +97,23 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("<script"));
         assert!(!html.contains("onclick="));
-        assert!(!html.contains("tabindex="));
         assert!(!html.contains("zinc-"));
     }
 
     /// wave1t: fixture emits `label "Comparison"` + `text "Before"` +
-    /// `text "After"`; the label names the disabled handle, not a layer.
+    /// `text "After"`; the label names the overlay range, not a layer.
     #[test]
-    fn layers_come_from_texts_label_names_disabled_handle() {
+    fn layers_come_from_texts_label_names_overlay_range() {
         let mut c = stub("comparison-slider", "Comparison");
         c.items.push(extra("text", "Before"));
         c.items.push(extra("text", "After"));
         let html = render(&c);
         assert_eq!(
             html,
-            format!("<div data-slot=\"comparison-slider\"><div data-slot=\"comparison-after\"><div>After</div></div><div data-slot=\"comparison-before\"><div>Before</div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-label=\"Comparison\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-orientation=\"horizontal\" aria-disabled=\"true\">{CHEVRONS_SVG}</div></div>")
+            format!("<div data-slot=\"comparison-slider\" data-value=\"50\"><input type=\"range\" min=\"0\" max=\"100\" value=\"50\" aria-label=\"Comparison\" tabindex=\"0\" data-slot=\"comparison-slider-range\"><div data-slot=\"comparison-after\"><div>After</div></div><div data-slot=\"comparison-before\"><div>Before</div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-valuemin=\"0\" aria-valuemax=\"100\" aria-valuenow=\"50\" aria-orientation=\"horizontal\">{CHEVRONS_SVG}</div></div>")
         );
         assert!(!html.contains("<div>Comparison</div>"));
+        assert!(!html.contains("aria-disabled"));
         reject_fx(&html);
     }
 
@@ -126,13 +126,15 @@ mod tests {
     }
 
     #[test]
-    fn aria_label_config_names_handle_escaped() {
+    fn aria_label_config_names_range_escaped() {
         let mut c = stub("comparison-slider", "Demo");
         c.items[0]
             .config
             .insert("aria-label".into(), "A & B".into());
         let html = render(&c);
-        assert!(html.contains("<div role=\"slider\" aria-label=\"A &amp; B\""));
+        assert!(html.contains(
+            "<input type=\"range\" min=\"0\" max=\"100\" value=\"50\" aria-label=\"A &amp; B\" tabindex=\"0\" data-slot=\"comparison-slider-range\">"
+        ));
         reject_fx(&html);
     }
 
@@ -158,7 +160,7 @@ mod tests {
         c.props
             .insert("aria-label".into(), "Before and after".into());
         let html = render(&c);
-        assert!(html.starts_with("<div data-slot=\"comparison-slider\" class=\"panels h-64\"><div data-slot=\"comparison-after\"><div><span>After</span></div></div><div data-slot=\"comparison-before\"><div><span>Before</span></div></div><div aria-hidden=\"true\"></div><div role=\"slider\" aria-label=\"Before and after\""));
+        assert!(html.starts_with("<div data-slot=\"comparison-slider\" data-value=\"50\" class=\"panels h-64\"><input type=\"range\" min=\"0\" max=\"100\" value=\"50\" aria-label=\"Before and after\" tabindex=\"0\" data-slot=\"comparison-slider-range\"><div data-slot=\"comparison-after\"><div><span>After</span></div></div><div data-slot=\"comparison-before\"><div><span>Before</span></div></div><div aria-hidden=\"true\"></div><div role=\"slider\""));
         reject_fx(&html);
         let css = include_str!("cronus_ui_css/comparison-slider.css");
         assert!(css.contains(
@@ -202,6 +204,21 @@ mod tests {
         assert!(css.contains("[data-slot=\"comparison-slider\"] > [aria-hidden] {"));
         assert!(css.contains("clip-path: inset(0 50% 0 0)"));
         assert!(css.contains("aspect-ratio: 16 / 9"));
+        assert!(css.contains("--cmp: 50%"));
+        assert!(css.contains(
+            "[data-slot=\"comparison-before\"] { clip-path: inset(0 calc(100% - var(--cmp, 50%)) 0 0); }"
+        ));
+        assert!(css.contains("[data-slot=\"comparison-slider-range\"]"));
         assert!(!css.contains("zinc-"));
+    }
+
+    #[test]
+    fn overlay_range_covers_widget() {
+        let html = render(&stub("comparison-slider", "Comparison"));
+        assert!(html.contains("data-slot=\"comparison-slider-range\""));
+        assert!(html.contains("data-value=\"50\""));
+        assert!(html.contains("<input type=\"range\" min=\"0\" max=\"100\" value=\"50\""));
+        assert!(!html.contains("aria-disabled"));
+        reject_fx(&html);
     }
 }

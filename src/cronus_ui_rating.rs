@@ -4,7 +4,8 @@
 //! outline lucide star with a clipped, warning-filled overlay star on top.
 //! React sizes the overlay with an inline `style="width:N%"`; the kernel emits
 //! no inline styles, so `data-state` on the item drives the overlay width in CSS.
-//! Not interact `role="radiogroup"` with hidden `<input type="radio">` stars.
+//! Interactive by default (one radio per star); `readOnly` / `readonly` /
+//! `read-only` keeps the static half-star display. Not `role="radiogroup"`.
 
 use crate::cronus_ui_kit::{item, label_of};
 use crate::parser::ComponentNode;
@@ -18,9 +19,11 @@ pub fn render(comp: &ComponentNode) -> String {
     let now = value_of(comp);
     let label = label_of(comp);
     let size = crate::cronus_ui_kit::choice(comp, "size", &["sm", "md", "lg"]).unwrap_or("md");
-    // React's idle DOM is static either way; `interactive:true` opts into the
-    // zero-JS radios so the stars can be set on the page.
-    let read_only = !crate::cronus_ui_kit::flag(comp, "interactive");
+    // React default is interactive. Read-only (half-star demos) when the author
+    // sets `readOnly` / `readonly` / `read-only`.
+    let read_only = crate::cronus_ui_kit::flag(comp, "readOnly")
+        || crate::cronus_ui_kit::flag(comp, "readonly")
+        || crate::cronus_ui_kit::flag(comp, "read-only");
     let class = if size == "md" {
         String::new()
     } else {
@@ -41,16 +44,9 @@ pub fn render(comp: &ComponentNode) -> String {
     };
     let text = fmt(now);
     if read_only {
-        let ro = if crate::cronus_ui_kit::flag(comp, "readOnly")
-            || crate::cronus_ui_kit::flag(comp, "read-only")
-        {
-            " aria-readonly=\"true\" data-readonly=\"\""
-        } else {
-            ""
-        };
         let items: String = (1..=MAX).map(star).collect();
         return format!(
-            "<div data-slot=\"rating\"{class} role=\"slider\" aria-label=\"{label}\" aria-valuemin=\"0\" aria-valuemax=\"{MAX}\" aria-valuenow=\"{text}\" aria-valuetext=\"{text} out of {MAX}\"{ro}>{items}</div>"
+            "<div data-slot=\"rating\"{class} role=\"slider\" aria-label=\"{label}\" aria-valuemin=\"0\" aria-valuemax=\"{MAX}\" aria-valuenow=\"{text}\" aria-valuetext=\"{text} out of {MAX}\" aria-readonly=\"true\" data-readonly=\"\">{items}</div>"
         );
     }
     // Interactive: zero JS, one radio per star in a label; CSS fills up to the
@@ -111,18 +107,16 @@ mod tests {
     use super::*;
     use crate::cronus_ui_kit::stub;
 
-    fn reject_interact(html: &str) {
+    fn reject_js(html: &str) {
         assert!(!html.contains("role=\"radiogroup\""));
-        assert!(!html.contains("<input"));
-        assert!(!html.contains("type=\"radio\""));
-        assert!(!html.contains("<label"));
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("style="));
         assert!(!html.contains("<script"));
+        assert!(!html.contains("onclick="));
     }
 
-    fn assert_slider(html: &str, now: u32, label: &str) {
+    fn assert_stars(html: &str, now: u32, label: &str) {
         assert!(html.starts_with("<div "));
         assert!(html.contains("data-slot=\"rating\""));
         assert!(html.contains("role=\"slider\""));
@@ -138,21 +132,35 @@ mod tests {
         let off = html.matches("data-state=\"off\"").count();
         assert_eq!(on, now as usize);
         assert_eq!(off, 5 - now as usize);
-        reject_interact(html);
+        reject_js(html);
+    }
+
+    fn star(state: &str) -> String {
+        format!(
+            "<span aria-hidden=\"true\" data-slot=\"rating-item\" data-state=\"{state}\"><span data-slot=\"rating-star\">{STAR}<span>{STAR}</span></span></span>"
+        )
     }
 
     #[test]
-    fn root_is_slider_of_star_spans_not_radiogroup() {
+    fn root_is_interactive_radios_not_radiogroup() {
+        crate::cronus_ui_kit::reset_instance_ids();
         let html = render(&stub("rating", "Rating"));
-        assert_slider(&html, 0, "Rating");
-        let star = format!(
-            "<span aria-hidden=\"true\" data-slot=\"rating-item\" data-state=\"off\"><span data-slot=\"rating-star\">{STAR}<span>{STAR}</span></span></span>"
+        assert_stars(&html, 0, "Rating");
+        assert_eq!(html.matches("type=\"radio\"").count(), 5);
+        assert_eq!(html.matches("<label>").count(), 5);
+        assert!(html.contains("tabindex=\"-1\""));
+        let item = format!(
+            "<label><input type=\"radio\" name=\"cui-rating-rating\" value=\"1\" aria-label=\"1 of 5\">{}</label><label><input type=\"radio\" name=\"cui-rating-rating\" value=\"2\" aria-label=\"2 of 5\">{}</label><label><input type=\"radio\" name=\"cui-rating-rating\" value=\"3\" aria-label=\"3 of 5\">{}</label><label><input type=\"radio\" name=\"cui-rating-rating\" value=\"4\" aria-label=\"4 of 5\">{}</label><label><input type=\"radio\" name=\"cui-rating-rating\" value=\"5\" aria-label=\"5 of 5\">{}</label>",
+            star("off"),
+            star("off"),
+            star("off"),
+            star("off"),
+            star("off"),
         );
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"rating\" role=\"slider\" aria-label=\"Rating\" aria-valuemin=\"0\" aria-valuemax=\"5\" aria-valuenow=\"0\" aria-valuetext=\"0 out of 5\">{}</div>",
-                star.repeat(5)
+                "<div data-slot=\"rating\" role=\"slider\" aria-label=\"Rating\" aria-valuemin=\"0\" aria-valuemax=\"5\" aria-valuenow=\"0\" aria-valuetext=\"0 out of 5\" tabindex=\"-1\">{item}</div>"
             )
         );
     }
@@ -162,7 +170,8 @@ mod tests {
         let mut c = stub("rating", "Rating");
         c.props.insert("value".into(), "3".into());
         let html = render(&c);
-        assert_slider(&html, 3, "Rating");
+        assert_stars(&html, 3, "Rating");
+        assert!(html.contains("value=\"3\" aria-label=\"3 of 5\" checked>"));
     }
 
     #[test]
@@ -176,21 +185,40 @@ mod tests {
             config: std::collections::HashMap::new(),
         });
         let html = render(&c);
-        assert_slider(&html, 4, "Rating");
+        assert_stars(&html, 4, "Rating");
     }
 
     #[test]
     fn value_defaults_to_zero() {
         let html = render(&stub("rating", "Stars"));
-        assert_slider(&html, 0, "Stars");
+        assert_stars(&html, 0, "Stars");
+        assert!(html.contains("type=\"radio\""));
     }
 
     #[test]
-    fn skips_interact_radio_stars() {
+    fn skips_radiogroup_and_inline_js() {
         let html = render(&stub("rating", "Rating"));
         assert!(!html.contains("★"));
         assert!(!html.contains("role=\"radiogroup\""));
-        reject_interact(&html);
+        reject_js(&html);
+    }
+
+    #[test]
+    fn read_only_keeps_half_star_and_no_radios() {
+        let mut c = stub("rating", "Rated 4.5 out of 5");
+        c.props.insert("value".into(), "4.5".into());
+        c.props.insert("readOnly".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("aria-valuenow=\"4.5\""));
+        assert!(html.contains("data-state=\"half\""));
+        assert_eq!(html.matches("data-state=\"on\"").count(), 4);
+        assert_eq!(html.matches("data-state=\"off\"").count(), 0);
+        assert!(html.contains("aria-readonly=\"true\""));
+        assert!(html.contains("data-readonly=\"\""));
+        assert!(!html.contains("<input"));
+        assert!(!html.contains("type=\"radio\""));
+        assert!(!html.contains("<label"));
+        reject_js(&html);
     }
 
     #[test]

@@ -3,8 +3,9 @@
 //! `<div data-slot="command-input-wrapper">` (search icon + `command-input`) >
 //! `<div data-slot="command-list" role="listbox">` > sizer `<div>` >
 //! `command-item[role=option]`. The first item carries cmdk's initial highlight
-//! (`data-selected="true"`). Zero JS: cmdk filtering needs JS, so the input is
-//! the same native `<input>` rendered `disabled`, with React's undimmed idle look.
+//! (`data-selected="true"`). The search field is a live native `<input
+//! data-slot="command-input">` (disabled only when the author sets `disabled`);
+//! page runtime filters `[data-slot=command-item]` text against it.
 //!
 //! Emitted source order is `label` (widget name), then the placeholder `text`
 //! when the fixture has one, then one `text` per item. A first text equal to the
@@ -26,7 +27,7 @@
 
 use crate::cronus_ui_dialog::trigger_button;
 use crate::cronus_ui_kit::{
-    attr_nonempty, choice_texts, esc, item, item_icon, modal_close_attrs, modal_dialog_open,
+    attr_nonempty, choice_texts, esc, flag, item, item_icon, modal_close_attrs, modal_dialog_open,
     overlay_trigger, widget_id,
 };
 use crate::parser::{ComponentItemNode, ComponentNode};
@@ -116,8 +117,13 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         String::new()
     };
+    let disabled = if flag(comp, "disabled") {
+        " disabled"
+    } else {
+        ""
+    };
     let command = format!(
-        "<div data-slot=\"command\"><label for=\"{input_id}\">{label}</label><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" id=\"{input_id}\" type=\"text\" placeholder=\"{placeholder}\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"Suggestions\"><div>{empty}{list}</div></div></div>",
+        "<div data-slot=\"command\"><label for=\"{input_id}\">{label}</label><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" id=\"{input_id}\" type=\"text\" placeholder=\"{placeholder}\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\"{disabled} /></div><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"Suggestions\"><div>{empty}{list}</div></div></div>",
         label = parts.label,
         placeholder = parts.placeholder,
     );
@@ -263,7 +269,7 @@ mod tests {
         assert_eq!(
             html,
             format!(
-                "<div data-slot=\"command\"><label for=\"cui-command-input\">Command menu</label><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" id=\"cui-command-input\" type=\"text\" placeholder=\"Type a command…\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" disabled /></div><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"Suggestions\"><div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"true\" data-selected=\"true\">Calendar</div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\" data-selected=\"false\">Search</div></div></div></div>"
+                "<div data-slot=\"command\"><label for=\"cui-command-input\">Command menu</label><div data-slot=\"command-input-wrapper\">{SEARCH_ICON}<input data-slot=\"command-input\" id=\"cui-command-input\" type=\"text\" placeholder=\"Type a command…\" role=\"combobox\" aria-autocomplete=\"list\" aria-expanded=\"true\" autocomplete=\"off\" spellcheck=\"false\" /></div><div data-slot=\"command-list\" role=\"listbox\" aria-label=\"Suggestions\"><div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"true\" data-selected=\"true\">Calendar</div><div data-slot=\"command-item\" role=\"option\" aria-selected=\"false\" data-selected=\"false\">Search</div></div></div></div>"
             )
         );
         assert!(!html.contains("command-item\" role=\"option\" aria-selected=\"true\" data-selected=\"true\">Type a command"));
@@ -275,9 +281,20 @@ mod tests {
         let html = render(&palette("Search", &["Calendar", "Profile"]));
         assert!(html.contains("placeholder=\"Search\""));
         assert!(html.contains("<label for=\"cui-command-input\">Search</label>"));
+        assert!(html.contains("data-slot=\"command-input\""));
+        assert!(!html.contains("spellcheck=\"false\" disabled"));
         assert_eq!(html.matches("data-slot=\"command-item\"").count(), 2);
         assert!(html.contains("data-selected=\"true\">Calendar</div>"));
         assert!(html.contains("data-selected=\"false\">Profile</div>"));
+        reject_interact(&html);
+    }
+
+    #[test]
+    fn disabled_prop_disables_search_input() {
+        let mut c = palette("Search", &["Calendar"]);
+        c.props.insert("disabled".into(), "true".into());
+        let html = render(&c);
+        assert!(html.contains("spellcheck=\"false\" disabled"));
         reject_interact(&html);
     }
 

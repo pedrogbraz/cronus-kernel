@@ -17,12 +17,15 @@
 //! also names the month. Cells carry react-day-picker's `data-outside`,
 //! `data-today` and `aria-selected`.
 //!
-//! Zero JS: month navigation and day selection need JS, so every `<button>` is
-//! rendered `disabled` with React's idle look (only the nav buttons are dimmed,
-//! as in React). `render_spec` is shared with the date pickers, which embed the
-//! same calendar inside their popovers.
+//! Zero JS: each day is a `<label>` around a visually hidden radio
+//! (`name` = [`instance_id`](crate::cronus_ui_kit::instance_id) `"day"`,
+//! `value="YYYY-MM-DD"`) and a decorative button (`tabindex="-1"` `aria-hidden`).
+//! CSS `:has(> input:checked)` paints the selected look. Prev/next stay enabled
+//! (`data-cal-nav`, `data-month` on the root) but do not re-render the grid.
+//! `render_spec` is shared with the date pickers, which embed the same calendar
+//! inside their popovers.
 
-use crate::cronus_ui_kit::{attr, attr_num, flag, item, label_of};
+use crate::cronus_ui_kit::{attr, attr_num, flag, instance_id, item, label_of};
 use crate::parser::ComponentNode;
 
 const MONTHS: [&str; 12] = [
@@ -81,24 +84,46 @@ pub struct Spec {
 }
 
 pub fn render(comp: &ComponentNode) -> String {
-    render_spec(&spec_of(comp))
+    render_spec_named(&spec_of(comp), &instance_id(comp, "day"))
 }
 
-/// The `<div data-slot="calendar">` for a spec.
+/// The `<div data-slot="calendar">` for a spec. Date-range-picker embeds this
+/// (range picking still needs JS, so days stay the idle disabled buttons).
 pub fn render_spec(spec: &Spec) -> String {
-    let nav = format!(
-        "<nav aria-label=\"Navigation bar\"><button type=\"button\" disabled aria-label=\"Go to the Previous Month\">{CHEVRON_LEFT}</button><button type=\"button\" disabled aria-label=\"Go to the Next Month\">{CHEVRON_RIGHT}</button></nav>"
-    );
+    render_inner(spec, None)
+}
+
+/// Like [`render_spec`], with live day radios whose `name` the date picker (or
+/// the standalone calendar) chooses so the picked day submits with a form.
+pub fn render_spec_named(spec: &Spec, radio_name: &str) -> String {
+    render_inner(spec, Some(radio_name))
+}
+
+fn render_inner(spec: &Spec, radio_name: Option<&str>) -> String {
+    let nav = if radio_name.is_some() {
+        format!(
+            "<nav aria-label=\"Navigation bar\"><button type=\"button\" data-cal-nav=\"prev\" aria-label=\"Go to the Previous Month\">{CHEVRON_LEFT}</button><button type=\"button\" data-cal-nav=\"next\" aria-label=\"Go to the Next Month\">{CHEVRON_RIGHT}</button></nav>"
+        )
+    } else {
+        format!(
+            "<nav aria-label=\"Navigation bar\"><button type=\"button\" disabled aria-label=\"Go to the Previous Month\">{CHEVRON_LEFT}</button><button type=\"button\" disabled aria-label=\"Go to the Next Month\">{CHEVRON_RIGHT}</button></nav>"
+        )
+    };
     let (mut year, mut month) = (spec.year, spec.month);
     let mut months = String::new();
     for _ in 0..spec.months.max(1) {
-        months.push_str(&month_html(spec, year, month));
+        months.push_str(&month_html(spec, year, month, radio_name));
         (year, month) = next_month(year, month);
     }
-    format!("<div data-slot=\"calendar\"><div><div>{nav}{months}</div></div></div>")
+    let month_attr = if radio_name.is_some() {
+        format!(" data-month=\"{:04}-{:02}\"", spec.year, spec.month)
+    } else {
+        String::new()
+    };
+    format!("<div data-slot=\"calendar\"{month_attr}><div><div>{nav}{months}</div></div></div>")
 }
 
-fn month_html(spec: &Spec, year: i32, month: u32) -> String {
+fn month_html(spec: &Spec, year: i32, month: u32, radio_name: Option<&str>) -> String {
     let caption = format!("{} {year}", MONTHS[(month - 1) as usize]);
     let head = WEEKDAYS
         .iter()
@@ -110,14 +135,19 @@ fn month_html(spec: &Spec, year: i32, month: u32) -> String {
     let prev_days = days_in_month(py, pm);
     let mut cells: Vec<String> = Vec::new();
     for i in 0..lead {
-        cells.push(cell(spec, (py, pm, prev_days - lead + 1 + i), true));
+        cells.push(cell(
+            spec,
+            (py, pm, prev_days - lead + 1 + i),
+            true,
+            radio_name,
+        ));
     }
     for d in 1..=days_in_month(year, month) {
-        cells.push(cell(spec, (year, month, d), false));
+        cells.push(cell(spec, (year, month, d), false, radio_name));
     }
     let mut next = 1;
     while cells.len() % 7 != 0 || (spec.fixed_weeks && cells.len() < 42) {
-        cells.push(cell(spec, (ny, nm, next), true));
+        cells.push(cell(spec, (ny, nm, next), true, radio_name));
         next += 1;
     }
     let rows = cells
@@ -129,7 +159,7 @@ fn month_html(spec: &Spec, year: i32, month: u32) -> String {
     )
 }
 
-fn cell(spec: &Spec, date: Date, outside: bool) -> String {
+fn cell(spec: &Spec, date: Date, outside: bool, radio_name: Option<&str>) -> String {
     let (year, month, day) = date;
     let mut classes: Vec<&str> = Vec::new();
     let mut selected = spec.selected == Some(date);
@@ -168,9 +198,21 @@ fn cell(spec: &Spec, date: Date, outside: bool) -> String {
         ordinal(day),
         if selected { ", selected" } else { "" }
     );
-    format!(
-        "<td{attrs}><button type=\"button\" disabled aria-label=\"{label}\">{day}</button></td>"
-    )
+    let button = match radio_name {
+        Some(name) => {
+            let iso = format!("{year:04}-{month:02}-{day:02}");
+            let checked = if spec.selected == Some(date) {
+                " checked"
+            } else {
+                ""
+            };
+            format!(
+                "<label><input type=\"radio\" name=\"{name}\" value=\"{iso}\"{checked}><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"{label}\">{day}</button></label>"
+            )
+        }
+        None => format!("<button type=\"button\" disabled aria-label=\"{label}\">{day}</button>"),
+    };
+    format!("<td{attrs}>{button}</td>")
 }
 
 fn ordinal(day: u32) -> &'static str {
@@ -320,14 +362,15 @@ mod tests {
         assert!(!html.contains("v-data="));
         assert!(!html.contains("v-model="));
         assert!(!html.contains("<script"));
-        assert!(!html.contains("<input"));
         assert!(!html.contains("type=\"date\""));
         assert!(!html.contains("grid-template-columns:repeat(7,1fr)"));
-        // JS-only controls are native buttons, always disabled.
-        assert_eq!(
-            html.matches("<button ").count(),
-            html.matches("<button type=\"button\" disabled ").count()
-        );
+        assert!(!html.contains("<button type=\"button\" disabled"));
+    }
+
+    fn day_btn(label: &str, day: u32) -> String {
+        format!(
+            "<button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"{label}\">{day}</button>"
+        )
     }
 
     fn visible_text(html: &str) -> String {
@@ -349,19 +392,23 @@ mod tests {
 
     #[test]
     fn june_2026_matches_react_day_picker_text_and_weeks() {
+        crate::cronus_ui_kit::reset_instance_ids();
         let html = render(&stub("calendar", "June 2026"));
         assert!(html.starts_with(&format!(
-            "<div data-slot=\"calendar\"><div><div><nav aria-label=\"Navigation bar\"><button type=\"button\" disabled aria-label=\"Go to the Previous Month\">{CHEVRON_LEFT}</button><button type=\"button\" disabled aria-label=\"Go to the Next Month\">{CHEVRON_RIGHT}</button></nav><div><div><span role=\"status\" aria-live=\"polite\">June 2026</span></div><table role=\"grid\" aria-label=\"June 2026\"><thead aria-hidden=\"true\"><tr><th scope=\"col\" aria-label=\"Sunday\">Su</th>"
+            "<div data-slot=\"calendar\" data-month=\"2026-06\"><div><div><nav aria-label=\"Navigation bar\"><button type=\"button\" data-cal-nav=\"prev\" aria-label=\"Go to the Previous Month\">{CHEVRON_LEFT}</button><button type=\"button\" data-cal-nav=\"next\" aria-label=\"Go to the Next Month\">{CHEVRON_RIGHT}</button></nav><div><div><span role=\"status\" aria-live=\"polite\">June 2026</span></div><table role=\"grid\" aria-label=\"June 2026\"><thead aria-hidden=\"true\"><tr><th scope=\"col\" aria-label=\"Sunday\">Su</th>"
         )));
         assert_eq!(
             visible_text(&html),
             "June 2026 Su Mo Tu We Th Fr Sa 31 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 1 2 3 4"
         );
         assert_eq!(html.matches("<tr>").count(), 6);
-        assert!(html.contains("<td role=\"gridcell\" data-outside=\"true\"><button type=\"button\" disabled aria-label=\"Sunday, May 31st, 2026\">31</button></td><td role=\"gridcell\"><button type=\"button\" disabled aria-label=\"Monday, June 1st, 2026\">1</button></td>"));
-        assert!(
-            html.contains("aria-label=\"Saturday, July 4th, 2026\">4</button></td></tr></tbody>")
-        );
+        assert!(html.contains(&format!(
+            "<td role=\"gridcell\" data-outside=\"true\"><label><input type=\"radio\" name=\"cui-calendar-day\" value=\"2026-05-31\"><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Sunday, May 31st, 2026\">31</button></label></td><td role=\"gridcell\"><label><input type=\"radio\" name=\"cui-calendar-day\" value=\"2026-06-01\">{}</label></td>",
+            day_btn("Monday, June 1st, 2026", 1)
+        )));
+        assert!(html.contains(
+            "aria-label=\"Saturday, July 4th, 2026\">4</button></label></td></tr></tbody>"
+        ));
         assert!(!html.contains("aria-selected"));
         reject_interact(&html);
     }
@@ -383,11 +430,12 @@ mod tests {
     /// attr) marks that day; outside the shown month it marks nothing.
     #[test]
     fn selected_attr_marks_day() {
+        crate::cronus_ui_kit::reset_instance_ids();
         let mut c = stub("calendar", "June 2026");
         c.props.insert("defaultMonth".into(), "2026-06-01".into());
         c.props.insert("selected".into(), "2026-06-01".into());
         let html = render(&c);
-        assert!(html.contains("<td role=\"gridcell\" aria-selected=\"true\"><button type=\"button\" disabled aria-label=\"Monday, June 1st, 2026, selected\">1</button></td>"), "{html}");
+        assert!(html.contains("<td role=\"gridcell\" aria-selected=\"true\"><label><input type=\"radio\" name=\"cui-calendar-day\" value=\"2026-06-01\" checked><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Monday, June 1st, 2026, selected\">1</button></label></td>"), "{html}");
         assert_eq!(html.matches("aria-selected").count(), 1);
         reject_interact(&html);
 
@@ -395,7 +443,9 @@ mod tests {
         only.props.insert("selected".into(), "2026-07-14".into());
         let html = render(&only);
         assert!(html.contains(">July 2026</span>"));
-        assert!(html.contains("aria-label=\"Tuesday, July 14th, 2026, selected\">14</button>"));
+        assert!(html.contains(
+            "aria-label=\"Tuesday, July 14th, 2026, selected\">14</button></label></td>"
+        ));
 
         let mut elsewhere = stub("calendar", "June 2026");
         elsewhere
@@ -409,11 +459,12 @@ mod tests {
 
     #[test]
     fn value_selects_day_and_picks_month() {
+        crate::cronus_ui_kit::reset_instance_ids();
         let mut c = stub("calendar", "Due");
         c.props.insert("value".into(), "2024-02-29".into());
         let html = render(&c);
         assert!(html.contains(">February 2024</span>"));
-        assert!(html.contains("<td role=\"gridcell\" aria-selected=\"true\"><button type=\"button\" disabled aria-label=\"Thursday, February 29th, 2024, selected\">29</button></td>"));
+        assert!(html.contains("<td role=\"gridcell\" aria-selected=\"true\"><label><input type=\"radio\" name=\"cui-calendar-day\" value=\"2024-02-29\" checked><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Thursday, February 29th, 2024, selected\">29</button></label></td>"));
         reject_interact(&html);
     }
 
@@ -427,7 +478,9 @@ mod tests {
         c.props.insert("fixedWeeks".into(), "true".into());
         let html = render(&c);
         assert_eq!(html.matches("<tr>").count(), 7, "head + six weeks");
-        assert!(html.contains("aria-label=\"Sunday, June 21st, 2026, selected\">21</button>"));
+        assert!(html.contains(
+            "value=\"2026-06-21\" checked><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Sunday, June 21st, 2026, selected\">21</button>"
+        ));
         reject_interact(&html);
     }
 
@@ -439,16 +492,18 @@ mod tests {
         c.props.insert("fixedWeeks".into(), "true".into());
         let html = render(&c);
         assert_eq!(html.matches("<tr>").count(), 7);
-        assert!(html
-            .contains("aria-label=\"Saturday, April 11th, 2026\">11</button></td></tr></tbody>"));
+        assert!(html.contains(
+            "aria-label=\"Saturday, April 11th, 2026\">11</button></label></td></tr></tbody>"
+        ));
     }
 
     #[test]
     fn today_attr_marks_cell() {
+        crate::cronus_ui_kit::reset_instance_ids();
         let mut c = stub("calendar", "June 2026");
         c.props.insert("today".into(), "2026-06-15".into());
         let html = render(&c);
-        assert!(html.contains("<td role=\"gridcell\" data-today=\"true\"><button type=\"button\" disabled aria-label=\"Today, Monday, June 15th, 2026\">15</button></td>"), "{html}");
+        assert!(html.contains("<td role=\"gridcell\" data-today=\"true\"><label><input type=\"radio\" name=\"cui-calendar-day\" value=\"2026-06-15\"><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Today, Monday, June 15th, 2026\">15</button></label></td>"), "{html}");
         assert_eq!(html.matches("data-today").count(), 1);
     }
 
@@ -456,14 +511,15 @@ mod tests {
     /// react-day-picker's modifiers; a `to` before `from` is dropped.
     #[test]
     fn range_mode_marks_start_middle_end() {
+        crate::cronus_ui_kit::reset_instance_ids();
         let mut c = stub("calendar", "Stay");
         c.props.insert("mode".into(), "range".into());
         c.props.insert("from".into(), "2026-06-21".into());
         c.props.insert("to".into(), "2026-06-27".into());
         let html = render(&c);
         assert!(html.contains(">June 2026</span>"));
-        assert!(html.contains("<td role=\"gridcell\" class=\"day-range-start\" aria-selected=\"true\"><button type=\"button\" disabled aria-label=\"Sunday, June 21st, 2026, selected\">21</button></td><td role=\"gridcell\" class=\"day-range-middle\" aria-selected=\"true\">"), "{html}");
-        assert!(html.contains("<td role=\"gridcell\" class=\"day-range-end\" aria-selected=\"true\"><button type=\"button\" disabled aria-label=\"Saturday, June 27th, 2026, selected\">27</button></td>"));
+        assert!(html.contains("<td role=\"gridcell\" class=\"day-range-start\" aria-selected=\"true\"><label><input type=\"radio\" name=\"cui-calendar-day\" value=\"2026-06-21\"><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Sunday, June 21st, 2026, selected\">21</button></label></td><td role=\"gridcell\" class=\"day-range-middle\" aria-selected=\"true\">"), "{html}");
+        assert!(html.contains("<td role=\"gridcell\" class=\"day-range-end\" aria-selected=\"true\"><label><input type=\"radio\" name=\"cui-calendar-day\" value=\"2026-06-27\"><button type=\"button\" tabindex=\"-1\" aria-hidden=\"true\" aria-label=\"Saturday, June 27th, 2026, selected\">27</button></label></td>"));
         assert_eq!(html.matches("aria-selected=\"true\"").count(), 7);
         assert_eq!(html.matches("day-range-middle").count(), 5);
         reject_interact(&html);
@@ -555,6 +611,7 @@ mod tests {
         assert!(css.contains("[data-slot=\"calendar\"] nav > button {"));
         assert!(css.contains("[data-slot=\"calendar\"] td > button {"));
         assert!(css.contains("[data-slot=\"calendar\"] td[aria-selected=\"true\"] { background: var(--cronus-surface-overlay); }"));
+        assert!(css.contains("[data-slot=\"calendar\"] td:has(> label > input:checked)"));
         assert!(css.contains("[data-slot=\"calendar\"] td.day-range-middle > button {"));
         assert!(css.contains("[data-slot=\"calendar\"] td[data-today=\"true\"] > button {"));
         assert!(css.contains("border-collapse: collapse"));
