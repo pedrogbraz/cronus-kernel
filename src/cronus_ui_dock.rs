@@ -316,6 +316,9 @@ mod tests {
         assert!(css.contains("[data-slot=\"dock-item\"]:hover { width: 4.4rem; height: 4.4rem; }"));
         assert!(css.contains("[data-slot=\"dock-item\"]:has(+ [data-slot=\"dock-item\"]:hover),\n[data-slot=\"dock-item\"]:hover + [data-slot=\"dock-item\"] { width: 3.68rem; height: 3.68rem; }"));
         assert!(css.contains("[data-slot=\"dock-item\"]:has(+ [data-slot=\"dock-item\"] + [data-slot=\"dock-item\"]:hover),\n[data-slot=\"dock-item\"]:hover + [data-slot=\"dock-item\"] + [data-slot=\"dock-item\"] { width: 2.97rem; height: 2.97rem; }"));
+        assert!(css.contains("[data-slot=\"dock\"][data-dock-live] [data-slot=\"dock-item\"]"));
+        assert!(css.contains("width: calc(2.75rem * var(--dock-s, 1));"));
+        assert!(css.contains("height: calc(2.75rem * var(--dock-s, 1));"));
         assert!(css.contains("@media (prefers-reduced-motion: reduce)"));
     }
 }

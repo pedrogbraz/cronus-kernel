@@ -1,9 +1,11 @@
 //! Dedicated CreditCardInput renderer. DOM matches React:
 //! `<div data-slot="credit-card-input">` wrapping a `<fieldset data-brand>` with a
 //! `sr-only` `<legend>` (group label), a `sr-only` polite brand announcement, the
-//! brand glyph `<svg>`, the number / expiry / CVC `<input>`s and the lucide
-//! `check` validity mark (hidden until valid — validation needs JS, so it stays
-//! hidden). Brand detection is static from the initial number (React IIN table).
+//! brand glyph `<svg>`, the number / expiry / CVC `<input>`s (`data-slot=
+//! credit-card-number|expiry|cvc`) and the lucide `check` validity mark
+//! (`data-slot="credit-card-valid"`, hidden until live.js marks the PAN valid).
+//! Brand detection is static from the initial number (React IIN table); live.js
+//! updates `data-brand` as the PAN is typed.
 //! Not interact `input("credit-card-input", "text")` (`<label>` + `*-control` + CTRL).
 
 use crate::cronus_ui_kit::{attr, attr_nonempty, esc, flag, item, label_of};
@@ -24,7 +26,7 @@ const UNKNOWN: Brand = Brand {
 };
 
 /// lucide `check` (React `size-4 text-success`, `scale-75 opacity-0` until valid).
-const CHECK: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"></path></svg>";
+const CHECK: &str = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" data-slot=\"credit-card-valid\"><path d=\"M20 6 9 17l-5-5\"></path></svg>";
 
 pub fn render(comp: &ComponentNode) -> String {
     let label = group_label(comp);
@@ -58,11 +60,23 @@ pub fn render(comp: &ComponentNode) -> String {
     } else {
         "0000 0000 0000 0000"
     };
-    let number_field = field("Card number", number_placeholder, &number, invalid);
-    let expiry_field = field("Expiration date, M M slash Y Y", "MM/YY", &expiry, invalid);
+    let number_field = field(
+        "Card number",
+        number_placeholder,
+        &number,
+        invalid,
+        "credit-card-number",
+    );
+    let expiry_field = field(
+        "Expiration date, M M slash Y Y",
+        "MM/YY",
+        &expiry,
+        invalid,
+        "credit-card-expiry",
+    );
     let cvc_aria = format!("Security code, {} digits", brand.cvc);
     let cvc_placeholder = if brand.cvc == 4 { "CVV" } else { "CVC" };
-    let cvc_field = field(&cvc_aria, cvc_placeholder, &cvc, invalid);
+    let cvc_field = field(&cvc_aria, cvc_placeholder, &cvc, invalid, "credit-card-cvc");
 
     format!(
         "<div data-slot=\"credit-card-input\">{fieldset}<legend class=\"sr-only\">{label}</legend><span class=\"sr-only\" aria-live=\"polite\">{announce}</span>{}{number_field}{expiry_field}{cvc_field}{CHECK}</fieldset></div>",
@@ -70,10 +84,11 @@ pub fn render(comp: &ComponentNode) -> String {
     )
 }
 
-fn field(aria: &str, placeholder: &str, value: &str, invalid: bool) -> String {
+fn field(aria: &str, placeholder: &str, value: &str, invalid: bool, slot: &str) -> String {
     let mut attrs = String::from(
         "type=\"text\" inputmode=\"numeric\" autocomplete=\"off\" autocorrect=\"off\" spellcheck=\"false\"",
     );
+    attrs.push_str(&format!(" data-slot=\"{slot}\""));
     attrs.push_str(&format!(" aria-label=\"{aria}\""));
     if invalid {
         attrs.push_str(" aria-invalid=\"true\"");
@@ -222,17 +237,17 @@ mod tests {
         assert!(html.contains("<legend class=\"sr-only\">Card</legend>"));
         assert!(html.contains("placeholder=\"MM/YY\""));
         reject_interact(&html);
-        let f = |aria: &str, ph: &str| {
-            format!("<input type=\"text\" inputmode=\"numeric\" autocomplete=\"off\" autocorrect=\"off\" spellcheck=\"false\" aria-label=\"{aria}\" placeholder=\"{ph}\" />")
+        let f = |aria: &str, ph: &str, slot: &str| {
+            format!("<input type=\"text\" inputmode=\"numeric\" autocomplete=\"off\" autocorrect=\"off\" spellcheck=\"false\" data-slot=\"{slot}\" aria-label=\"{aria}\" placeholder=\"{ph}\" />")
         };
         assert_eq!(
             html,
             format!(
                 "<div data-slot=\"credit-card-input\"><fieldset data-brand=\"unknown\"><legend class=\"sr-only\">Card</legend><span class=\"sr-only\" aria-live=\"polite\"></span>{}{}{}{}{CHECK}</fieldset></div>",
                 glyph("unknown"),
-                f("Card number", "0000 0000 0000 0000"),
-                f("Expiration date, M M slash Y Y", "MM/YY"),
-                f("Security code, 3 digits", "CVC"),
+                f("Card number", "0000 0000 0000 0000", "credit-card-number"),
+                f("Expiration date, M M slash Y Y", "MM/YY", "credit-card-expiry"),
+                f("Security code, 3 digits", "CVC", "credit-card-cvc"),
             )
         );
     }

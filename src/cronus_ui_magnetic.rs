@@ -282,6 +282,9 @@ mod tests {
         assert!(CSS.contains("[data-slot=\"magnetic\"] {\n  display: inline-block;\n  width: var(--cui-magnetic-w, 100%);\n  color: var(--cronus-fg);\n  position: relative;"));
         assert!(CSS.contains("[data-slot=\"magnetic-target\"] {\n  display: block;\n  transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);"));
         assert!(CSS.contains("[data-slot=\"magnetic\"] > .z { position: absolute; }"));
+        assert!(CSS.contains(
+            "[data-slot=\"magnetic\"][data-magnetic-live] > .z { pointer-events: none; }"
+        ));
         assert!(CSS.contains("[data-slot=\"magnetic\"] > .z1 { inset-block-start: 0; inset-inline-start: 0; width: var(--cui-magnetic-pad, 0px); height: var(--cui-magnetic-pad, 0px); }"));
         assert!(CSS.contains("[data-slot=\"magnetic\"] > .z2:hover ~ [data-slot=\"magnetic-target\"] { transform: translate(0, calc(-1 * var(--cui-magnetic-pull, 7px))); }"));
         assert!(CSS.contains("[data-slot=\"magnetic\"].s-60 { --cui-magnetic-pull: 14.4px; }"));

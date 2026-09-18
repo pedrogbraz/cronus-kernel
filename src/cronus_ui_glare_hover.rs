@@ -131,14 +131,16 @@ mod tests {
         assert!(css.contains("transition: opacity 300ms var(--cronus-ease);"));
         assert!(css.contains("[data-slot=\"glare-hover\"]:hover > [aria-hidden]"));
         assert!(css.contains("[data-slot=\"glare-hover\"]:focus-within > [aria-hidden]"));
-        assert!(css.contains("50% 50%"));
-        // Pointer stand-in: the glare sweeps the diagonal while hovered.
+        assert!(css.contains("background-position: var(--glare-x, 50%) var(--glare-y, 50%);"));
+        // Pointer stand-in: the glare sweeps the diagonal while hovered; live
+        // mode pins the sheen to `--glare-x/--glare-y`.
         assert!(css.contains("animation: cui-glare-sweep 2.4s ease-in-out infinite alternate;"));
+        assert!(css.contains("[data-slot=\"glare-hover\"][data-glare-live]:hover > [aria-hidden]"));
+        assert!(css.contains("animation: none;"));
         assert!(css.contains("@keyframes cui-glare-sweep"));
         assert!(css.contains("prefers-reduced-motion"));
         assert!(css.contains("[data-slot=\"glare-hover\"].card {\n  padding: 2rem;"));
         assert!(css.contains("[data-slot=\"glare-hover\"] .h-xl {"));
-        assert!(!css.contains("--glare-x"));
         assert!(!css.contains("zinc-"));
         assert!(!css.contains(FX_BOX));
     }

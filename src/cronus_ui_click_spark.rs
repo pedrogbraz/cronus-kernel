@@ -157,7 +157,8 @@ mod tests {
         assert!(css.contains("[data-slot=\"click-spark\"] > [aria-hidden] > span {"));
         // React: size-1 rounded-full bg-primary, 500ms cubic-bezier(.22,1,.36,1) forwards.
         assert!(css.contains("width: 0.25rem; height: 0.25rem; border-radius: 9999px;"));
-        assert!(css.contains("[data-slot=\"click-spark\"]:active > [aria-hidden] > span {\n  animation: cui-click-spark 500ms cubic-bezier(.22, 1, .36, 1) forwards;"));
+        assert!(css.contains("inset-inline-start: var(--spark-x, 50%); top: var(--spark-y, 50%);"));
+        assert!(css.contains("[data-slot=\"click-spark\"]:active > [aria-hidden] > span,\n[data-slot=\"click-spark\"][data-sparking] > [aria-hidden] > span {\n  animation: cui-click-spark 500ms cubic-bezier(.22, 1, .36, 1) forwards;"));
         assert!(css.contains("--cui-a: calc(360deg * var(--cui-k) / var(--cui-n));"));
         assert!(css.contains("--cui-d: calc(18px + mod(var(--cui-k), 3) * 6px);"));
         assert!(css.contains("@keyframes cui-click-spark"));

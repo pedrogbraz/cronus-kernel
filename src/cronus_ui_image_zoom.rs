@@ -247,6 +247,9 @@ mod tests {
         assert!(css.contains(
             "background: color-mix(in oklab, var(--cronus-surface-overlay) 90%, transparent);"
         ));
+        assert!(css.contains(
+            ".cui-image-zoom > [data-slot=\"image-zoom\"] [data-slot=\"image-zoom-content\"] { transform-origin: var(--zoom-ox, 50%) var(--zoom-oy, 50%); }"
+        ));
         assert!(
             css.contains("[data-slot=\"image-zoom-indicator\"] svg { width: 1rem; height: 1rem; }")
         );

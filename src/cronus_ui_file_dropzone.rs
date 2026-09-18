@@ -154,5 +154,7 @@ mod tests {
         assert!(css.contains(
             "[data-slot=\"file-dropzone\"] > span > span { font-weight: 500; color: var(--cronus-fg); }"
         ));
+        assert!(css.contains("[data-slot=\"file-dropzone\"][data-dragging=\"true\"]"));
+        assert!(css.contains("border-color: var(--cronus-primary);"));
     }
 }

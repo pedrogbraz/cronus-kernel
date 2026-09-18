@@ -143,7 +143,8 @@ mod tests {
         // React: oklch(0.75 0.18 hue), size × 0.6 tall, 1s life, gravity 0.12 px/frame².
         assert!(css.contains("background: oklch(0.75 0.18 var(--cui-h));"));
         assert!(css.contains("height: calc(var(--cui-s) * 0.6);"));
-        assert!(css.contains("[data-slot=\"confetti\"]:active > [aria-hidden] > span {\n  animation: cui-confetti 1s linear forwards;"));
+        assert!(css.contains("inset-inline-start: var(--spark-x, 50%); top: var(--spark-y, 50%);"));
+        assert!(css.contains("[data-slot=\"confetti\"]:active > [aria-hidden] > span,\n[data-slot=\"confetti\"][data-sparking] > [aria-hidden] > span {\n  animation: cui-confetti 1s linear forwards;"));
         assert!(css.contains(
             "100% { translate: var(--cui-dx) calc(var(--cui-dy) + 231px); opacity: 0; }"
         ));

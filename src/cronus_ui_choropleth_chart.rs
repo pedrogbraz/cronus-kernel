@@ -12,8 +12,9 @@
 //! `ChoroplethChart` chrome — `<div data-slot="choropleth-chart"
 //! class="v-motion">` (`aspect` 16 / 9), features filled by quintile with
 //! `--chart-scale-01…05`, `--cronus-surface-base` 0.5px strokes, an 800ms
-//! fade-in, hover dim to 0.4 and the docs zoom buttons (`zoom:true`, rendered
-//! disabled: zoom needs JS).
+//! fade-in, hover dim to 0.4 and the docs zoom buttons (`zoom:true`) with
+//! `data-choropleth-zoom="in"|"out"` (disabled only when the author sets
+//! `disabled:`).
 
 use crate::cronus_ui_chart::series_names;
 use crate::cronus_ui_kit::{choice, esc, flag, fmt_coord, label_of, numeric_items};
@@ -148,17 +149,27 @@ fn render_motion(
     let zoom = if flag(comp, "zoom") {
         let plus = crate::cronus_ui_icons::svg_or_empty("plus");
         let minus = crate::cronus_ui_icons::svg_or_empty("minus");
+        let disabled = flag(comp, "disabled");
         format!(
             "<div class=\"zoom\">{}{}</div>",
-            crate::cronus_ui::button_html(&plus, "secondary", "icon", None, true, Some("Zoom in")),
+            crate::cronus_ui::button_html(
+                &plus,
+                "secondary",
+                "icon",
+                None,
+                disabled,
+                Some("Zoom in")
+            )
+            .replacen("<button ", "<button data-choropleth-zoom=\"in\" ", 1),
             crate::cronus_ui::button_html(
                 &minus,
                 "secondary",
                 "icon",
                 None,
-                true,
+                disabled,
                 Some("Zoom out")
             )
+            .replacen("<button ", "<button data-choropleth-zoom=\"out\" ", 1)
         )
     } else {
         String::new()
@@ -278,7 +289,7 @@ mod tests {
     }
 
     #[test]
-    fn motion_variant_uses_scale_fills_and_disabled_zoom() {
+    fn motion_variant_uses_scale_fills_and_zoom_buttons() {
         let mut c = stub("choropleth-chart", "World");
         c.style = Some("choropleth-chart+motion".into());
         c.props.insert("zoom".into(), "true".into());
@@ -286,9 +297,11 @@ mod tests {
         assert!(html.starts_with("<div data-slot=\"choropleth-chart\" class=\"v-motion\" role=\"img\" aria-label=\"World\"><svg viewBox=\"0 0 200 190\" aria-hidden=\"true\"><g class=\"features\"><path class=\"feature\" d=\"M10 10 h 80 v 50 h -80 z\" fill=\"var(--chart-scale-03)\" stroke=\"var(--cronus-surface-base)\" stroke-width=\"0.5\"><title>Northwest: 42</title></path>"));
         assert!(html.contains("fill=\"var(--chart-scale-05)\" stroke=\"var(--cronus-surface-base)\" stroke-width=\"0.5\"><title>Central: 95</title>"));
         assert!(html.contains("<div class=\"zoom\"><button"));
+        assert!(html.contains("data-choropleth-zoom=\"in\""));
+        assert!(html.contains("data-choropleth-zoom=\"out\""));
         assert!(html.contains("aria-label=\"Zoom in\""));
         assert!(html.contains("aria-label=\"Zoom out\""));
-        assert_eq!(html.matches(" disabled").count(), 2);
+        assert!(!html.contains(" disabled"));
         reject_stub(&html);
     }
 

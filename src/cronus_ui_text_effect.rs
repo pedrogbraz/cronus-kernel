@@ -9,7 +9,8 @@
 //! 0.02 s, or `stagger:`) after `delay:` — Motion's `staggerChildren` /
 //! `delayChildren` as CSS animation delays. Off under reduced motion.
 //! `size:sm|3xl` and `tone:secondary` are the docs typography; an `action`
-//! item (React's Replay button, a JS control) renders disabled after it.
+//! item (React's Replay button) renders after it with `data-text-effect-replay`
+//! so live.js can restart the animation.
 //! Not the catalog `fx()` title SURF box.
 
 use crate::cronus_ui_kit::{attr, attr_num, esc, label_of};
@@ -110,12 +111,12 @@ pub fn render(comp: &ComponentNode) -> String {
         .find(|i| matches!(i.item_type.as_str(), "action" | "button") && !i.text.is_empty())
     {
         Some(action) => {
-            let mut action = action.clone();
-            action.config.insert("disabled".into(), "true".into());
-            format!(
-                "<div class=\"cui-text-effect-demo\">{effect}{}</div>",
-                crate::cronus_ui_glass_card::action_button(&action)
-            )
+            let btn = crate::cronus_ui_glass_card::action_button(action).replacen(
+                "<button ",
+                "<button data-text-effect-replay ",
+                1,
+            );
+            format!("<div class=\"cui-text-effect-demo\">{effect}{btn}</div>")
         }
         None => effect,
     }
@@ -181,7 +182,8 @@ mod tests {
         p.items.push(replay);
         let html = render(&p);
         assert!(html.starts_with("<div class=\"cui-text-effect-demo\"><p data-slot=\"text-effect\" class=\"p-slide s-4 d-35 t-sm secondary\"><span class=\"sr-only\">Every surface arrives.</span>"));
-        assert!(html.contains("<span class=\"i-2\">arrives.</span></span></span></p><button type=\"button\" disabled data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\"><svg"));
+        assert!(html.contains("<span class=\"i-2\">arrives.</span></span></span></p><button data-text-effect-replay type=\"button\" data-slot=\"button\" data-variant=\"outline\" data-size=\"sm\" class=\"cui-btn\"><svg"));
+        assert!(!html.contains(" disabled"));
         assert!(html.ends_with("</svg>Replay</button></div>"));
         reject_fx(&html);
     }
